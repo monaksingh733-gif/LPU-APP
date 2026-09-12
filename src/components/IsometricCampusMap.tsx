@@ -13,6 +13,7 @@ import {
   IconUsers,
   IconWalk,
 } from '@/components/icons';
+import type { OpportunityBeacon, OpportunityKind } from '@/components/SkillOpportunityMapLayer';
 
 interface IsometricCampusMapProps {
   you: { x: number; y: number };
@@ -38,6 +39,10 @@ interface IsometricCampusMapProps {
   mode?: CampusMode;
   squadPins?: SquadPin[];
   onSelectSquadPin?: (pin: SquadPin) => void;
+  opportunityBeacons?: OpportunityBeacon[];
+  onSelectOpportunityBeacon?: (beacon: OpportunityBeacon) => void;
+  onOpenDropBeacon?: () => void;
+  onMapClickCoord?: (coord: { x: number; y: number }) => void;
 }
 
 interface BuddyZone {
@@ -116,8 +121,13 @@ export function IsometricCampusMap({
   mode = 'solo',
   squadPins = [],
   onSelectSquadPin,
+  opportunityBeacons = [],
+  onSelectOpportunityBeacon,
+  onOpenDropBeacon,
+  onMapClickCoord,
 }: IsometricCampusMapProps) {
   const [activeBuddyZone, setActiveBuddyZone] = useState<BuddyZone | null>(null);
+  const [opportunityFilter, setOpportunityFilter] = useState<'all' | OpportunityKind>('all');
   const [lighting, setLighting] = useState<LightingMode>('day');
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -132,7 +142,7 @@ export function IsometricCampusMap({
   const userX = toStageX(you.x);
   const userY = toStageY(you.y);
 
-  // Click handler with exact coordinate projection (Fixes pin jump bug)
+  // Click handler with exact coordinate projection
   const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
     if (hasMovedRef.current) return;
     const svg = e.currentTarget;
@@ -143,11 +153,18 @@ export function IsometricCampusMap({
     const normX = Math.round((clickX / 1000) * 100 * 10) / 10;
     const normY = Math.round((clickY / 650) * 100 * 10) / 10;
 
+    const clampedX = Math.max(5, Math.min(95, normX));
+    const clampedY = Math.max(5, Math.min(95, normY));
+
     onMoveYou({
-      x: Math.max(5, Math.min(95, normX)),
-      y: Math.max(5, Math.min(95, normY)),
+      x: clampedX,
+      y: clampedY,
     });
     setActiveBuddyZone(null);
+
+    if (onMapClickCoord) {
+      onMapClickCoord({ x: clampedX, y: clampedY });
+    }
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -280,6 +297,42 @@ export function IsometricCampusMap({
           <IconRadar size={12} className={showBuddyRadar ? 'text-emerald-200' : 'text-pine'} />
           <span>Radar</span>
         </button>
+
+        {/* Opportunity Filter Pills */}
+        <div className="flex items-center gap-1 rounded-full bg-paper/90 p-0.5 border border-line shadow-xs">
+          {[
+            { id: 'all', label: 'All', icon: '📍' },
+            { id: 'bounty', label: 'Gigs ₹', icon: '⚡' },
+            { id: 'skill', label: 'Skills', icon: '💡' },
+            { id: 'hackathon', label: 'Match', icon: '🤝' },
+            { id: 'study', label: 'Squads', icon: '📚' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setOpportunityFilter(tab.id as 'all' | OpportunityKind)}
+              className={`flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold transition-all ${
+                opportunityFilter === tab.id
+                  ? 'bg-ink text-paper shadow-2xs'
+                  : 'text-ink-soft hover:text-ink'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span className="hidden sm:inline">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Drop Opportunity Beacon Button */}
+        {onOpenDropBeacon && (
+          <button
+            onClick={onOpenDropBeacon}
+            className="tap-spring flex items-center gap-1 rounded-full bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 text-[11px] font-bold shadow-xs active:scale-95"
+            title="Drop Live Skill/Gig Pin"
+          >
+            <span>+</span>
+            <span>Drop Pin</span>
+          </button>
+        )}
       </div>
 
       {/* Top Right: Zoom & Recenter Controls */}
@@ -314,6 +367,10 @@ export function IsometricCampusMap({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onWheel={(e) => {
+          e.preventDefault();
+          handleZoom(e.deltaY < 0 ? 0.15 : -0.15);
+        }}
         style={{ touchAction: 'pan-x pan-y' }}
       >
         <svg
@@ -881,6 +938,147 @@ export function IsometricCampusMap({
             </g>
           ))}
 
+          {/* 8.5 Live Skill & Opportunity Beacons with Dynamic Expiring Timer Rings */}
+          {opportunityBeacons
+            .filter((b) => opportunityFilter === 'all' || b.kind === opportunityFilter)
+            .map((beacon) => {
+              const bx = toStageX(beacon.x);
+              const by = toStageY(beacon.y);
+              const pct = Math.max(0, Math.min(1, beacon.expiresMinutes / beacon.totalMinutes));
+              const isExpiringSoon = pct <= 0.3;
+              const perimeter = 2 * Math.PI * 15; // r = 15 => ~94.25
+
+              const kindConfig = {
+                bounty: {
+                  primary: '#f59e0b',
+                  accent: '#d97706',
+                  bg: '#78350f',
+                  icon: '⚡',
+                  label: beacon.reward || 'Bounty',
+                },
+                skill: {
+                  primary: '#3b82f6',
+                  accent: '#2563eb',
+                  bg: '#1e3a8a',
+                  icon: '💡',
+                  label: 'Skill',
+                },
+                hackathon: {
+                  primary: '#a855f7',
+                  accent: '#9333ea',
+                  bg: '#581c87',
+                  icon: '🤝',
+                  label: 'Partner',
+                },
+                study: {
+                  primary: '#10b981',
+                  accent: '#059669',
+                  bg: '#064e3b',
+                  icon: '📚',
+                  label: 'Study',
+                },
+              }[beacon.kind];
+
+              return (
+                <g
+                  key={beacon.id}
+                  transform={`translate(${bx}, ${by})`}
+                  className="cursor-pointer transition-transform hover:scale-115"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectOpportunityBeacon?.(beacon);
+                  }}
+                >
+                  {/* Radar pulse wave */}
+                  <circle cx="0" cy="0" r="22" fill={kindConfig.primary} opacity="0.25">
+                    <animate
+                      attributeName="r"
+                      values="14;28;14"
+                      dur={isExpiringSoon ? '1.2s' : '2.4s'}
+                      repeatCount="indefinite"
+                    />
+                    <animate
+                      attributeName="opacity"
+                      values="0.35;0.05;0.35"
+                      dur={isExpiringSoon ? '1.2s' : '2.4s'}
+                      repeatCount="indefinite"
+                    />
+                  </circle>
+
+                  {/* Circular Timer Ring Base Track */}
+                  <circle
+                    cx="0"
+                    cy="0"
+                    r="15"
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth="3.5"
+                    opacity="0.85"
+                  />
+
+                  {/* Dynamic Expiring Timer Ring (Calculates remaining time percentage) */}
+                  <circle
+                    cx="0"
+                    cy="0"
+                    r="15"
+                    fill="none"
+                    stroke={isExpiringSoon ? '#ef4444' : kindConfig.primary}
+                    strokeWidth="3.5"
+                    strokeDasharray={perimeter}
+                    strokeDashoffset={perimeter * (1 - pct)}
+                    strokeLinecap="round"
+                    transform="rotate(-90)"
+                  />
+
+                  {/* Core Icon Badge */}
+                  <circle
+                    cx="0"
+                    cy="0"
+                    r="11"
+                    fill={kindConfig.accent}
+                    stroke="#ffffff"
+                    strokeWidth="1.5"
+                  />
+                  <text
+                    x="0"
+                    y="3.5"
+                    textAnchor="middle"
+                    fontSize="9.5"
+                    fill="#ffffff"
+                    fontWeight="bold"
+                  >
+                    {kindConfig.icon}
+                  </text>
+
+                  {/* Floating Label with Expiry Countdown */}
+                  <g transform="translate(0, -26)">
+                    <rect
+                      x="-54"
+                      y="-11"
+                      width="108"
+                      height="22"
+                      rx="11"
+                      fill={kindConfig.bg}
+                      stroke="#ffffff"
+                      strokeWidth="1.5"
+                      filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.25))"
+                    />
+                    <text
+                      x="0"
+                      y="3.5"
+                      textAnchor="middle"
+                      fontSize="9"
+                      fill="#ffffff"
+                      fontWeight="bold"
+                    >
+                      {kindConfig.icon} {beacon.title.slice(0, 12)}… ({beacon.expiresMinutes}m)
+                    </text>
+                  </g>
+                </g>
+              );
+            })}
+
+
           {/* 9. Dynamic Holographic Laser Route to Target */}
           {targetX !== null && targetY !== null && (
             <g className="pointer-events-none">
@@ -922,6 +1120,14 @@ export function IsometricCampusMap({
           </g>
         </svg>
       </div>
+
+      {/* Floating Action Hint */}
+      {!selectedItem && !activeBuddyZone && (
+        <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-ink/80 px-3.5 py-1.5 text-[11px] font-bold text-cream backdrop-blur-md shadow-lg">
+          <span>📍</span>
+          <span>Tap anywhere on campus to drop a Beacon</span>
+        </div>
+      )}
 
       {/* Selected Location Bottom Drawer */}
       {selectedItem && (

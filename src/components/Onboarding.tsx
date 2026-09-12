@@ -27,6 +27,9 @@ type Step =
   | "profile";
 
 const COURSES = [
+  "B.Tech Computer Science",
+  "BCA (Bachelor of Computer Applications)",
+  "B.Tech Robotics & Automation",
   "B.Tech CSE",
   "B.Tech ECE",
   "B.Tech Mechanical",
@@ -37,6 +40,7 @@ const COURSES = [
   "B.Sc Physics",
   "B.Sc Psychology",
   "MA English",
+  "Other",
 ];
 const INTERESTS = ["Study", "Gym", "Hangout", "Gaming", "Music", "Movies", "Coffee"];
 const HUES = [18, 44, 96, 142, 174, 210, 262, 300, 330];
@@ -88,7 +92,7 @@ export function Onboarding({
   const [fullName, setFullName] = useState("");
   const [course, setCourse] = useState("");
   const [year, setYear] = useState(0);
-  const [gender, setGender] = useState<"" | "male" | "female" | "non_binary">("");
+  const [gender, setGender] = useState<"" | "male" | "female" | "non_binary" | "prefer_not_to_say">("");
   const [interests, setInterests] = useState<string[]>([]);
   const [lookingFor, setLookingFor] = useState("");
   const [hue, setHue] = useState(HUES[4]);
@@ -853,12 +857,13 @@ export function Onboarding({
                 <span className="mb-1.5 block text-[11px] font-bold tracking-wide text-ink-faint uppercase">
                   Gender
                 </span>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {(
                     [
                       ["male", "Male"],
                       ["female", "Female"],
                       ["non_binary", "Non-binary"],
+                      ["prefer_not_to_say", "Prefer not to say"],
                     ] as const
                   ).map(([v, l]) => (
                     <button

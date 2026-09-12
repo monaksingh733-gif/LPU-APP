@@ -1,4 +1,4 @@
-export type Gender = "male" | "female" | "non_binary";
+export type Gender = "male" | "female" | "non_binary" | "prefer_not_to_say";
 
 export interface MeUser {
   id: string;
@@ -124,6 +124,8 @@ export interface MessageItem {
   kind: "text" | "image" | "voice" | "system";
   body: string;
   createdAt: string;
+  status?: "pending" | "sent" | "failed";
+  errorMessage?: string;
 }
 
 export interface ChatDetail {

@@ -39,6 +39,7 @@ import { SkillBarterLedger } from "@/components/SkillBarterLedger";
 import { ErrandBounties } from "@/components/ErrandBounties";
 import { VerifiedMarketplace } from "@/components/VerifiedMarketplace";
 import { EphemeralLocalBoard } from "@/components/EphemeralLocalBoard";
+import { CareerSkillBoostHub } from "@/components/CareerSkillBoostHub";
 
 const INTERESTS = ["Study", "Gym", "Hangout", "Gaming", "Music", "Movies", "Coffee"];
 
@@ -46,7 +47,7 @@ type MainHub = "people" | "exchange" | "pulse" | "study";
 type PeopleSub = "classmates" | "matchmaker" | "duo";
 type ExchangeSub = "bounties" | "marketplace" | "barter" | "ephemeral";
 type PulseSub = "hype" | "sports" | "squad";
-type StudySub = "academics" | "zen";
+type StudySub = "academics" | "career" | "zen";
 
 export function BuddiesView() {
   const { toast, go } = useApp();
@@ -187,6 +188,9 @@ export function BuddiesView() {
               <Chip active={studySub === "academics"} onClick={() => setStudySub("academics")}>
                 📖 Academics & Notes
               </Chip>
+              <Chip active={studySub === "career"} onClick={() => setStudySub("career")}>
+                🚀 Career & Skills
+              </Chip>
               <Chip active={studySub === "zen"} onClick={() => setStudySub("zen")}>
                 🧘 Solo Zen Focus
               </Chip>
@@ -196,7 +200,7 @@ export function BuddiesView() {
       </header>
 
       {/* Hub Content Area */}
-      <div className="min-h-0 flex-1 overflow-y-auto no-scrollbar p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto no-scrollbar p-4 pb-32">
         {/* PEOPLE HUB */}
         {mainHub === "people" && (
           <>
@@ -236,6 +240,7 @@ export function BuddiesView() {
         {mainHub === "study" && (
           <>
             {studySub === "academics" && <AcademicCollabHub onToast={(m, t) => toast(m, t)} />}
+            {studySub === "career" && <CareerSkillBoostHub onToast={(m, t) => toast(m, t)} />}
             {studySub === "zen" && <SoloZenView onNavigateToSpot={() => go("campus")} />}
           </>
         )}
@@ -414,8 +419,8 @@ export function BuddiesView() {
           {list?.length === 0 && (
             <EmptyState
               icon={<IconBuddies size={22} />}
-              title="No classmates found"
-              body="Try changing the interest filter, branch search, or academic year."
+              title="Looks like everyone's at the chai tapri! ☕"
+              body="No classmates matched your current filter criteria. Try resetting the branch query, academic year, or interest tags."
               action={
                 search || interest || year || sameGender ? (
                   <button

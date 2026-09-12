@@ -23,6 +23,9 @@ import { Cyber3DEyeWidget } from "@/components/Splash3D";
 import { CampusModesBar } from "@/components/CampusModesBar";
 import { useCampusMode } from "@/context/AppModeContext";
 import { WalkWithMeGuardian } from "@/components/WalkWithMeGuardian";
+import { DashboardHero } from "@/components/DashboardHero";
+import { DashboardMetrics } from "@/components/DashboardMetrics";
+import { PersonalizedOpportunities } from "@/components/PersonalizedOpportunities";
 
 export function HomeView() {
   const { me, go, refreshMe, toast } = useApp();
@@ -143,201 +146,16 @@ export function HomeView() {
           </button>
         )}
 
-        {/* Warm & Cozy Campus Hub with 3D Gyroscope Hologram */}
-        <section className="relative overflow-hidden rounded-3xl border border-[#8aa792]/35 bg-gradient-to-br from-[#2a4539] via-[#355447] to-[#1f352b] text-cream shadow-xl">
-          {/* Subtle tactile cyber-paper backdrop */}
-          <div className="cyber-grid pointer-events-none absolute inset-0 opacity-15" />
-
-          {/* 3D Gyroscope Hologram Eye embedded in the top-right corner */}
-          <div className="pointer-events-none absolute -right-6 -top-4 opacity-85 mix-blend-screen">
-            <Cyber3DEyeWidget size={145} />
-          </div>
-
-          <div className="relative z-10 p-5">
-            {/* Header with warm sage & terracotta telemetry badge */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-widest text-[#cad2c5] uppercase">
-                <span className="h-2 w-2 rounded-full bg-[#f4a261] animate-ping" />
-                <span className="flex items-center gap-1">
-                  <IconLeaf size={12} className="text-[#84a98c]" />
-                  CAMPUS PULSE // COZY HUB
-                </span>
-              </div>
-              <span className="rounded-full border border-[#8aa792]/40 bg-[#1b3026]/70 px-2 py-0.5 font-mono text-[9px] font-bold text-[#cad2c5] backdrop-blur-xs">
-                CAMPUS HARMONY · LIVE
-              </span>
-            </div>
-
-            {/* Main Friends Here Headline with Warm 3D Isometric Node */}
-            <div className="mt-3">
-              <div className="flex items-center gap-2.5">
-                <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-[#f4a261] via-[#e76f51] to-[#e9c46a] shadow-md shadow-[#e76f51]/30">
-                  <svg viewBox="0 0 24 24" className="h-5 w-5 text-[#264653] fill-none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                  </svg>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <p className="font-display text-[27px] leading-none font-black tracking-tight drop-shadow-sm text-white">
-                    {data ? data.pulse.total.toLocaleString() : "340"}
-                  </p>
-                  <span className="font-display text-sm font-bold text-[#cad2c5]">
-                    friends here on campus right now
-                  </span>
-                </div>
-              </div>
-              <p className="mt-1.5 text-[11px] font-medium text-cream/75 flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#84a98c]" />
-                <span>Warm quad ambience · Friendly social vibe</span>
-              </p>
-            </div>
-
-            {/* Interconnected Rounded Tabs with Warm Color Separation */}
-            <div className="mt-4 flex rounded-2xl border border-white/15 bg-black/25 p-1 backdrop-blur-md">
-              {(
-                [
-                  { id: "vibe", label: "🌿 Warm Vibe" },
-                  { id: "rhythm", label: "📈 Rhythm" },
-                  { id: "hotspots", label: "🏡 Cozy Corners" },
-                ] as const
-              ).map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setInsightTab(tab.id)}
-                  className={`flex-1 cursor-pointer rounded-xl py-1.5 text-center text-[10.5px] font-bold transition-all duration-200 ${
-                    insightTab === tab.id
-                      ? "bg-gradient-to-r from-[#c86d51] to-[#b2573d] text-white shadow-xs"
-                      : "text-cream/70 hover:text-white"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Tab 1: Warm Vibe Content */}
-            {insightTab === "vibe" && (
-              <div className="mt-3.5 space-y-2.5 animate-pop">
-                {/* Lightened sub-cards for WCAG AAA accessibility with friendly copywriting */}
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: "Friendly souls", n: data?.pulse.buddies ?? 90, icon: "👥", tab: "buddies" as const },
-                    { label: "Cozy cafes", n: data?.pulse.food ?? 60, icon: "☕", tab: "campus" as const },
-                    { label: "Gatherings", n: data?.pulse.events ?? 40, icon: "✨", tab: "buddies" as const },
-                  ].map((s) => (
-                    <button
-                      key={s.label}
-                      onClick={() => go(s.tab)}
-                      className="group cursor-pointer rounded-xl border border-white/20 bg-white/14 p-2.5 text-left backdrop-blur-md transition-all hover:bg-white/22 hover:border-white/35 shadow-xs"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs">{s.icon}</span>
-                        <span className="font-mono text-sm font-black text-[#fde047] drop-shadow-xs group-hover:scale-105 transition-transform">
-                          {s.n}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-[10px] font-bold text-white/95 leading-tight">{s.label}</p>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Real-time Campus Energy Meter */}
-                <div className="rounded-xl border border-white/15 bg-white/10 p-2.5 backdrop-blur-sm">
-                  <div className="flex items-center justify-between text-[10px] font-bold text-cream/90">
-                    <span className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-[#84a98c] animate-pulse" />
-                      Quad Atmosphere
-                    </span>
-                    <span className="font-mono text-[#fde047] font-extrabold">Gentle & Welcoming (92%)</span>
-                  </div>
-                  <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-black/40 p-[1px]">
-                    <div className="h-full rounded-full bg-gradient-to-r from-[#84a98c] via-[#f4a261] to-[#e76f51] shadow-[0_0_8px_rgba(231,111,81,0.8)] w-[92%]" />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 2: Rhythm (24h Activity Curve) */}
-            {insightTab === "rhythm" && (
-              <div className="mt-3.5 space-y-2 animate-pop">
-                <div className="rounded-2xl border border-white/12 bg-black/25 p-3.5 backdrop-blur-md">
-                  <div className="flex items-center justify-between text-[10.5px] font-semibold text-cream/80 mb-2">
-                    <span className="flex items-center gap-1">
-                      <IconLeaf size={12} className="text-[#84a98c]" />
-                      24h Campus Rhythm & Flow
-                    </span>
-                    <span className="font-mono text-[#f4a261] text-[9.5px]">NOW: Peak Flow</span>
-                  </div>
-
-                  {/* SVG Area Sparkline Chart with warm terracotta & sage gradient */}
-                  <div className="relative h-20 w-full">
-                    <svg viewBox="0 0 300 80" className="h-full w-full overflow-visible" preserveAspectRatio="none">
-                      <defs>
-                        <linearGradient id="warmAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#f4a261" stopOpacity="0.55" />
-                          <stop offset="100%" stopColor="#84a98c" stopOpacity="0.0" />
-                        </linearGradient>
-                      </defs>
-                      {/* Area Fill */}
-                      <path
-                        d="M 0 70 Q 50 65 80 40 T 150 15 T 220 30 T 260 20 T 300 65 L 300 80 L 0 80 Z"
-                        fill="url(#warmAreaGrad)"
-                      />
-                      {/* Stroke Curve */}
-                      <path
-                        d="M 0 70 Q 50 65 80 40 T 150 15 T 220 30 T 260 20 T 300 65"
-                        fill="none"
-                        stroke="#f4a261"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                      />
-                      {/* Current time pin */}
-                      <circle cx="210" cy="28" r="5" fill="#e76f51" className="animate-ping opacity-75" />
-                      <circle cx="210" cy="28" r="4" fill="#f4a261" stroke="#ffffff" strokeWidth="1.5" />
-                      <line x1="210" y1="28" x2="210" y2="80" stroke="#f4a261" strokeDasharray="2 2" strokeWidth="1" />
-                    </svg>
-                  </div>
-
-                  {/* Hour markers */}
-                  <div className="mt-1.5 flex justify-between font-mono text-[8px] font-bold text-cream/60">
-                    <span>8 AM</span>
-                    <span>11 AM</span>
-                    <span>1 PM (Lunch)</span>
-                    <span className="text-[#f4a261]">NOW</span>
-                    <span>7 PM</span>
-                    <span>11 PM</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 3: Cozy Corners */}
-            {insightTab === "hotspots" && (
-              <div className="mt-3.5 space-y-2 animate-pop">
-                {[
-                  { name: "Central Food Court (Block 34)", busy: "88% Lively", wait: "🍱 ~10m wait", level: "w-[88%] bg-[#f4a261]" },
-                  { name: "University Central Library", busy: "38% Peaceful", wait: "📚 52 cozy seats open", level: "w-[38%] bg-[#84a98c]" },
-                  { name: "Outdoor Quadrangle & Lawns", busy: "72% Welcoming", wait: "🏸 Games & gentle breeze", level: "w-[72%] bg-[#52796f]" },
-                  { name: "Creative Innovation Studio", busy: "60% Friendly", wait: "🎨 Collaborative teams", level: "w-[60%] bg-[#e76f51]" },
-                ].map((h) => (
-                  <div
-                    key={h.name}
-                    className="rounded-2xl border border-white/12 bg-white/8 p-3 flex items-center justify-between gap-3 text-xs backdrop-blur-xs"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold text-white text-[11.5px]">{h.name}</p>
-                      <div className="mt-1.5 h-1.5 w-full rounded-full bg-black/40 overflow-hidden">
-                        <div className={`h-full rounded-full ${h.level}`} />
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="font-mono text-[10px] font-bold text-[#fde047] block">{h.busy}</span>
-                      <span className="text-[9px] text-cream/80 block">{h.wait}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+        {/* Cozy Hub: Dashboard Hero Banner & Pastel Metrics */}
+        <section className="space-y-6">
+          <DashboardHero totalFriends={data?.pulse.total ?? 354} />
+          <DashboardMetrics
+            onNavigate={(tab) => go(tab)}
+            buddiesCount={data?.pulse.buddies ?? 141}
+            foodCount={data?.pulse.food ?? 62}
+            gatheringsCount={data?.pulse.events ?? 57}
+          />
+          <PersonalizedOpportunities />
         </section>
 
         {/* quick actions 2x2 with pastel circular icon anchors and friendly copywriting */}

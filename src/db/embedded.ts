@@ -21,7 +21,7 @@ export function createEmbeddedPgPool() {
   });
 
   mem.public.none(`
-    CREATE TYPE gender AS ENUM ('male', 'female', 'non_binary');
+    CREATE TYPE gender AS ENUM ('male', 'female', 'non_binary', 'prefer_not_to_say');
     CREATE TYPE chat_status AS ENUM ('pending', 'accepted', 'expired', 'declined');
     CREATE TYPE message_kind AS ENUM ('text', 'image', 'voice', 'system');
     CREATE TYPE report_category AS ENUM ('harassment', 'fake_profile', 'spam');
@@ -42,6 +42,7 @@ export function createEmbeddedPgPool() {
       visible boolean NOT NULL DEFAULT true,
       is_demo boolean NOT NULL DEFAULT false,
       is_restricted boolean NOT NULL DEFAULT false,
+      password_hash text,
       created_at timestamp with time zone NOT NULL DEFAULT now()
     );
 
@@ -161,6 +162,56 @@ export function createEmbeddedPgPool() {
       pinned boolean NOT NULL DEFAULT false,
       created_at timestamp with time zone NOT NULL DEFAULT now()
     );
+
+    CREATE TABLE skills (
+      id text PRIMARY KEY DEFAULT gen_random_uuid(),
+      name text NOT NULL UNIQUE,
+      category text NOT NULL
+    );
+
+    CREATE TABLE user_skills (
+      user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      skill_id text NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+      proficiency text NOT NULL DEFAULT 'Intermediate',
+      PRIMARY KEY (user_id, skill_id)
+    );
+
+    CREATE TABLE map_beacons (
+      id text PRIMARY KEY DEFAULT gen_random_uuid(),
+      creator_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title text NOT NULL,
+      type text NOT NULL,
+      lat double precision NOT NULL,
+      lng double precision NOT NULL,
+      expires_at timestamp with time zone NOT NULL,
+      created_at timestamp with time zone NOT NULL DEFAULT now()
+    );
+
+    CREATE TABLE opportunities (
+      id text PRIMARY KEY DEFAULT gen_random_uuid(),
+      poster_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title text NOT NULL,
+      company text NOT NULL,
+      type text NOT NULL,
+      stipend text NOT NULL DEFAULT 'Unpaid / Credits',
+      category text NOT NULL DEFAULT 'For You',
+      status text NOT NULL DEFAULT 'Open',
+      created_at timestamp with time zone NOT NULL DEFAULT now()
+    );
+
+    CREATE TABLE opportunity_skills (
+      opportunity_id text NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
+      skill_id text NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+      PRIMARY KEY (opportunity_id, skill_id)
+    );
+
+    CREATE TABLE applications (
+      id text PRIMARY KEY DEFAULT gen_random_uuid(),
+      applicant_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      opportunity_id text NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
+      status text NOT NULL DEFAULT 'Pending',
+      applied_at timestamp with time zone NOT NULL DEFAULT now()
+    );
   `);
 
   const adapter = mem.adapters.createPg();
@@ -169,18 +220,18 @@ export function createEmbeddedPgPool() {
   const origQuery = rawPool.query.bind(rawPool);
 
   rawPool.query = function (config: any, values: any, cb: any) {
-    let callback =
+    const callback =
       typeof values === "function"
         ? values
         : typeof config === "object" && typeof cb === "function"
           ? cb
           : null;
-    let params = Array.isArray(values)
+    const params = Array.isArray(values)
       ? values
       : typeof config === "object"
         ? config.values
         : [];
-    let isArrayMode = typeof config === "object" && config.rowMode === "array";
+    const isArrayMode = typeof config === "object" && config.rowMode === "array";
 
     const execute = (resolve: any, reject: any) => {
       try {

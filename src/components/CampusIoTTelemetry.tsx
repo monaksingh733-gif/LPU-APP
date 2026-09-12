@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   IconCheck,
   IconFlame,
@@ -94,6 +94,46 @@ export function CampusIoTTelemetry({
   const [activeDormTab, setActiveDormTab] = useState<"Hostel A" | "Hostel B">("Hostel A");
   const [machines, setMachines] = useState<LaundryMachine[]>(INITIAL_LAUNDRY);
   const [notifiedMachines, setNotifiedMachines] = useState<string[]>([]);
+  const [noiseZones, setNoiseZones] = useState<NoiseZone[]>(NOISE_ZONES);
+  const [libraryData, setLibraryData] = useState([
+    { name: "Floor 2 · Silent Research Nook", total: 50, taken: 16, status: "High Availability (34 Desks Open)" },
+    { name: "Floor 1 · High-Speed Digital Lab", total: 60, taken: 42, status: "Moderate (18 Workstations Open)" },
+    { name: "Ground Floor · General Reading Hall", total: 80, taken: 68, status: "Busy (12 Desks Open)" },
+    { name: "24/7 Air-Conditioned Night Study Hall", total: 40, taken: 26, status: "14 AC Benches Free" },
+  ]);
+
+  // Periodic 5-second randomized mock sensor jitter
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNoiseZones((prev) =>
+        prev.map((nz) => {
+          const delta = Math.floor(Math.random() * 5) - 2;
+          const newDb = Math.max(15, Math.min(95, nz.db + delta));
+          return { ...nz, db: newDb };
+        })
+      );
+
+      setLibraryData((prev) =>
+        prev.map((lib) => {
+          const delta = Math.floor(Math.random() * 3) - 1;
+          const newTaken = Math.max(2, Math.min(lib.total - 1, lib.taken + delta));
+          const open = lib.total - newTaken;
+          return {
+            ...lib,
+            taken: newTaken,
+            status:
+              open > 25
+                ? `High Availability (${open} Desks Open)`
+                : open > 10
+                ? `Moderate (${open} Desks Open)`
+                : `Busy (${open} Desks Open)`,
+          };
+        })
+      );
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const filteredMachines = machines.filter((m) => m.dorm === activeDormTab);
   const freeWashers = filteredMachines.filter((m) => m.type === "washer" && m.status === "available").length;
@@ -111,6 +151,20 @@ export function CampusIoTTelemetry({
 
   return (
     <div className="space-y-4 animate-fade-in">
+      {/* Prominent Simulated Data Notice Badge */}
+      <div className="flex items-center justify-between rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+          </span>
+          <span className="font-semibold text-amber-900">Campus Sensor Grid</span>
+        </div>
+        <span className="rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-[10px] font-bold text-amber-700">
+          Simulated Data (5s Sync)
+        </span>
+      </div>
+
       {/* 1. HOSTEL LAUNDRY TELEMETRY */}
       <div className="rounded-2xl border border-line bg-cream p-4 shadow-xs space-y-3">
         <div className="flex items-center justify-between">
@@ -230,12 +284,7 @@ export function CampusIoTTelemetry({
         </div>
 
         <div className="space-y-2 text-xs">
-          {[
-            { name: "Floor 2 · Silent Research Nook", total: 50, taken: 16, status: "High Availability (34 Desks Open)" },
-            { name: "Floor 1 · High-Speed Digital Lab", total: 60, taken: 42, status: "Moderate (18 Workstations Open)" },
-            { name: "Ground Floor · General Reading Hall", total: 80, taken: 68, status: "Busy (12 Desks Open)" },
-            { name: "24/7 Air-Conditioned Night Study Hall", total: 40, taken: 26, status: "14 AC Benches Free" },
-          ].map((lib, i) => {
+          {libraryData.map((lib, i) => {
             const pct = Math.round((lib.taken / lib.total) * 100);
             return (
               <div key={i} className="rounded-xl bg-paper p-2.5 border border-line/60 space-y-1.5">
@@ -277,7 +326,7 @@ export function CampusIoTTelemetry({
         </div>
 
         <div className="space-y-2">
-          {NOISE_ZONES.map((nz) => (
+          {noiseZones.map((nz) => (
             <div
               key={nz.id}
               className="flex items-center justify-between gap-2.5 rounded-xl bg-paper p-2.5 border border-line/60 text-xs"

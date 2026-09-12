@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/app/page";
 import { api } from "@/lib/client";
 import type { PlaceItem, VendorDetail, VendorListItem } from "@/lib/types";
-import { Avatar, Chip, Lightbox, OpenBadge, Skeleton, Spinner, Stars } from "@/components/ui";
+import { Avatar, Chip, EmptyState, Lightbox, OpenBadge, Skeleton, Spinner, Stars } from "@/components/ui";
 import {
   IconBuilding,
   IconChevronLeft,
@@ -25,6 +25,12 @@ import { CampusModesBar } from "@/components/CampusModesBar";
 import { ARCampusLens } from "@/components/ARCampusLens";
 import { CampusIoTTelemetry } from "@/components/CampusIoTTelemetry";
 import { FlashFoodRescue } from "@/components/FlashFoodRescue";
+import {
+  type OpportunityBeacon,
+  INITIAL_OPPORTUNITIES,
+  DropOpportunityModal,
+  OpportunityDetailModal,
+} from "@/components/SkillOpportunityMapLayer";
 
 const CENTER = { x: 50, y: 40 };
 
@@ -209,6 +215,12 @@ export function CampusView() {
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [showBuddyRadar, setShowBuddyRadar] = useState(true);
 
+  // Live Skill & Opportunity Beacons
+  const [opportunities, setOpportunities] = useState<OpportunityBeacon[]>(INITIAL_OPPORTUNITIES);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<OpportunityBeacon | null>(null);
+  const [dropOpportunityOpen, setDropOpportunityOpen] = useState(false);
+  const [pendingBeaconCoord, setPendingBeaconCoord] = useState<{ x: number; y: number } | null>(null);
+
   const load = useCallback(async () => {
     try {
       const res = await api<{ vendors: VendorListItem[]; places: PlaceItem[] }>(
@@ -358,11 +370,23 @@ export function CampusView() {
             toast(`Squad Rally Pin: "${sp.title}" at ${sp.locationName} (${sp.attendees.length} joined)`, "ok");
             joinSquadPin(sp.id, "Anya");
           }}
+          opportunityBeacons={opportunities}
+          onSelectOpportunityBeacon={(beacon) => {
+            setSelectedOpportunity(beacon);
+          }}
+          onOpenDropBeacon={() => {
+            setPendingBeaconCoord(null);
+            setDropOpportunityOpen(true);
+          }}
+          onMapClickCoord={(coord) => {
+            setPendingBeaconCoord(coord);
+            setDropOpportunityOpen(true);
+          }}
         />
       </div>
 
       {/* Smart Cards Drawer List */}
-      <div className="no-scrollbar flex-1 space-y-3 overflow-y-auto px-4 py-3 pb-8">
+      <div className="no-scrollbar flex-1 space-y-3 overflow-y-auto px-4 py-3 pb-32">
         {loading && (
           <div className="space-y-3 pt-2">
             <Skeleton className="h-24 w-full rounded-2xl" />
@@ -546,8 +570,19 @@ export function CampusView() {
         )}
 
         {!loading && visVendors.length === 0 && visPlaces.length === 0 && (
-          <div className="py-12 text-center text-xs font-semibold text-ink-faint">
-            Nothing found for “{query}”. Try another search term.
+          <div className="py-6">
+            <EmptyState
+              title="Even our best campus guides couldn't find this spot! 🧭"
+              body={`No stalls or campus blocks matched "${query}". Try searching for Block 34, Central Library, Chai Tapri, or Kathi Rolls.`}
+              action={
+                <button
+                  onClick={() => setQuery("")}
+                  className="cursor-pointer rounded-xl bg-pine px-4 py-2 font-display text-xs font-bold text-cream shadow-2xs active:scale-95 transition-transform"
+                >
+                  Clear Search
+                </button>
+              }
+            />
           </div>
         )}
       </div>
@@ -630,6 +665,39 @@ export function CampusView() {
           </div>
         </div>
       )}
+
+      {/* Drop Skill / Opportunity Beacon Modal */}
+      <DropOpportunityModal
+        open={dropOpportunityOpen}
+        initialCoordinates={pendingBeaconCoord}
+        onClose={() => {
+          setDropOpportunityOpen(false);
+          setPendingBeaconCoord(null);
+        }}
+        onDrop={(newBeacon) => {
+          setOpportunities((prev) => [newBeacon, ...prev]);
+          setSelectedOpportunity(newBeacon);
+          setPendingBeaconCoord(null);
+          toast(`Beacon Broadcasted! 📍 "${newBeacon.title}" dropped on map`, "ok");
+        }}
+      />
+
+      {/* Opportunity Detail Modal */}
+      <OpportunityDetailModal
+        beacon={selectedOpportunity}
+        onClose={() => setSelectedOpportunity(null)}
+        onOpenIndoor={(building) => {
+          setSelectedOpportunity(null);
+          setIndoorBuilding(building);
+        }}
+        onConnect={(beacon) => {
+          toast(
+            `Connection request sent to ${beacon.creatorName}! "${beacon.title}"`,
+            "ok"
+          );
+          setSelectedOpportunity(null);
+        }}
+      />
     </div>
   );
 }

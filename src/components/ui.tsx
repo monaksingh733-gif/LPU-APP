@@ -224,18 +224,23 @@ export function EmptyState({
   body,
   action,
 }: {
-  icon: ReactNode;
+  icon?: ReactNode;
   title: string;
   body: string;
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-line bg-paper/60 px-6 py-10 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-pine-soft text-pine shadow-sm">
-        {icon}
+    <div className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-line/80 bg-paper/70 px-6 py-10 text-center shadow-2xs backdrop-blur-xs animate-fade-up">
+      <div className="relative flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-pine-soft via-amber-soft to-cream text-pine shadow-sm ring-4 ring-paper/60">
+        <span className="text-3xl select-none transition-transform hover:scale-110">🧭</span>
+        {icon && (
+          <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-pine text-cream shadow-xs text-xs">
+            {icon}
+          </span>
+        )}
       </div>
-      <p className="font-display text-sm font-bold text-ink">{title}</p>
-      <p className="max-w-[28ch] text-xs leading-relaxed text-ink-soft">{body}</p>
+      <p className="font-display text-base font-bold text-ink tracking-tight">{title}</p>
+      <p className="max-w-[32ch] text-xs leading-relaxed text-ink-soft">{body}</p>
       {action && <div className="mt-2">{action}</div>}
     </div>
   );

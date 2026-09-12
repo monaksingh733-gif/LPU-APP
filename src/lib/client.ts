@@ -76,6 +76,7 @@ export const GENDER_LABEL: Record<string, string> = {
   male: "Male",
   female: "Female",
   non_binary: "Non-binary",
+  prefer_not_to_say: "Prefer not to say",
 };
 
 export const CATEGORY_LABEL: Record<string, string> = {

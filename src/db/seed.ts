@@ -6,8 +6,12 @@ import {
   eventRsvps,
   events,
   messages,
+  opportunities,
+  opportunitySkills,
   places,
   reviews,
+  skills,
+  userSkills,
   users,
   vendors,
 } from "@/db/schema";
@@ -432,6 +436,116 @@ async function doSeed() {
       createdAt: new Date(Date.now() - 50 * 3600_000),
     },
   ]);
+
+  /* ------------------- skills & matchmaking dictionary -------------------- */
+  const skillEntries = [
+    { name: "Next.js", category: "Frontend" },
+    { name: "React", category: "Frontend" },
+    { name: "Tailwind CSS", category: "Frontend" },
+    { name: "PostgreSQL", category: "Backend" },
+    { name: "Drizzle ORM", category: "Backend" },
+    { name: "HTML5 Canvas", category: "Game Dev" },
+    { name: "Game Physics", category: "Game Dev" },
+    { name: "JavaScript", category: "Frontend" },
+    { name: "Python", category: "AI & Data" },
+    { name: "OpenCV", category: "AI & Data" },
+    { name: "Robotics / ROS", category: "Hardware" },
+    { name: "Figma", category: "Design" },
+  ];
+
+  const skillMap = new Map<string, string>();
+  for (const s of skillEntries) {
+    const [inserted] = await db
+      .insert(skills)
+      .values(s)
+      .onConflictDoNothing()
+      .returning({ id: skills.id });
+    if (inserted) {
+      skillMap.set(s.name, inserted.id);
+    } else {
+      const existing = await db.select({ id: skills.id }).from(skills).where(sql`${skills.name} = ${s.name}`).limit(1);
+      if (existing[0]) skillMap.set(s.name, existing[0].id);
+    }
+  }
+
+  // Link demo users to their skills
+  if (userIds.length > 0) {
+    const defaultUser = userIds[0]; // Anya
+    const techUser = userIds[1]; // Aarav
+    const toLink = [
+      { uid: defaultUser, sName: "Next.js", prof: "Advanced" },
+      { uid: defaultUser, sName: "React", prof: "Advanced" },
+      { uid: defaultUser, sName: "Tailwind CSS", prof: "Advanced" },
+      { uid: defaultUser, sName: "HTML5 Canvas", prof: "Intermediate" },
+      { uid: techUser, sName: "Python", prof: "Advanced" },
+      { uid: techUser, sName: "Robotics / ROS", prof: "Intermediate" },
+    ];
+    for (const l of toLink) {
+      const sid = skillMap.get(l.sName);
+      if (sid) {
+        await db.insert(userSkills).values({
+          userId: l.uid,
+          skillId: sid,
+          proficiency: l.prof,
+        }).onConflictDoNothing();
+      }
+    }
+
+    // Seed permanent opportunities & opportunitySkills
+    const oppDefs = [
+      {
+        title: "Front-End Developer Intern",
+        company: "Campus Innovation Labs · Block 34",
+        type: "Final Year Internship",
+        category: "For You",
+        stipend: "₹18,000 / mo",
+        reqSkills: ["Next.js", "React", "Tailwind CSS"],
+      },
+      {
+        title: "Interactive Web Game Dev",
+        company: "Student Tech Hub · Uni-Mall",
+        type: "Part-time Gig",
+        category: "For You",
+        stipend: "₹12,000 / mo",
+        reqSkills: ["HTML5 Canvas", "Game Physics", "JavaScript"],
+      },
+      {
+        title: "AI Perception & Robotics Intern",
+        company: "Advanced Credit Program · Block 32",
+        type: "Summer Research",
+        category: "Freshers",
+        stipend: "Academic Credits + ₹10,000",
+        reqSkills: ["Python", "OpenCV", "Robotics / ROS"],
+      },
+    ];
+
+    for (const opp of oppDefs) {
+      const [newOpp] = await db
+        .insert(opportunities)
+        .values({
+          posterId: teamId,
+          title: opp.title,
+          company: opp.company,
+          type: opp.type,
+          stipend: opp.stipend,
+          category: opp.category,
+          status: "Open",
+        })
+        .returning({ id: opportunities.id });
+
+      if (newOpp) {
+        for (const reqSkillName of opp.reqSkills) {
+          const sid = skillMap.get(reqSkillName);
+          if (sid) {
+            await db.insert(opportunitySkills).values({
+              opportunityId: newOpp.id,
+              skillId: sid,
+            }).onConflictDoNothing();
+          }
+        }
+      }
+    }
+  }
 
   void teamId;
 }

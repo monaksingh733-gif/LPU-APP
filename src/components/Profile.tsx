@@ -187,7 +187,7 @@ export function ProfileView() {
             </div>
 
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {user.interests.map((i) => (
+              {(user.interests || []).map((i: string) => (
                 <span
                   key={i}
                   className="rounded-lg bg-paper px-2.5 py-1 text-[11px] font-bold text-ink-soft"

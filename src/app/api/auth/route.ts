@@ -180,7 +180,7 @@ export async function POST(req: Request) {
       ? body.interests.map(String).slice(0, 6)
       : [];
     if (fullName.length < 3) return err(422, "bad_name", "Enter your full name (as on your ID card).");
-    if (!["male", "female", "non_binary"].includes(gender))
+    if (!["male", "female", "non_binary", "prefer_not_to_say"].includes(gender))
       return err(422, "bad_gender", "Select a gender option.");
     if (!course) return err(422, "bad_course", "Select your course.");
     if (academicYear < 1 || academicYear > 4)

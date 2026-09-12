@@ -1,10 +1,13 @@
+import { relations, type InferInsertModel, type InferSelectModel } from "drizzle-orm";
 import {
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   real,
   text,
   timestamp,
@@ -13,33 +16,46 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
-/* ---------------------------------- enums --------------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                                1. TYPE ENUMS                               */
+/* -------------------------------------------------------------------------- */
 
-export const genderEnum = pgEnum("gender", ["male", "female", "non_binary"]);
+export const genderEnum = pgEnum("gender", [
+  "male",
+  "female",
+  "non_binary",
+  "prefer_not_to_say",
+]);
+
 export const chatStatusEnum = pgEnum("chat_status", [
   "pending",
   "accepted",
   "expired",
   "declined",
 ]);
+
 export const messageKindEnum = pgEnum("message_kind", [
   "text",
   "image",
   "voice",
   "system",
 ]);
+
 export const reportCategoryEnum = pgEnum("report_category", [
   "harassment",
   "fake_profile",
   "spam",
 ]);
+
 export const reportStatusEnum = pgEnum("report_status", [
   "open",
   "reviewed",
   "actioned",
 ]);
 
-/* ---------------------------------- users --------------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                        2. USERS & AUTHENTICATION                           */
+/* -------------------------------------------------------------------------- */
 
 export const users = pgTable(
   "users",
@@ -58,14 +74,13 @@ export const users = pgTable(
     visible: boolean("visible").notNull().default(true),
     isDemo: boolean("is_demo").notNull().default(false),
     isRestricted: boolean("is_restricted").notNull().default(false),
+    passwordHash: text("password_hash"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (t) => [index("users_email_idx").on(t.email)]
 );
-
-/* ------------------------------- auth tables ------------------------------ */
 
 export const otpCodes = pgTable(
   "otp_codes",
@@ -98,7 +113,9 @@ export const authSessions = pgTable(
   (t) => [index("auth_sessions_token_idx").on(t.token)]
 );
 
-/* ------------------------------- chat system ------------------------------ */
+/* -------------------------------------------------------------------------- */
+/*                              3. CHAT SYSTEM                                */
+/* -------------------------------------------------------------------------- */
 
 export const chatSessions = pgTable(
   "chat_sessions",
@@ -152,7 +169,9 @@ export const messages = pgTable(
   (t) => [index("messages_session_idx").on(t.sessionId)]
 );
 
-/* --------------------------------- events --------------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                          4. CAMPUS LIFE & EVENTS                           */
+/* -------------------------------------------------------------------------- */
 
 export const events = pgTable("events", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -182,7 +201,9 @@ export const eventRsvps = pgTable(
   (t) => [uniqueIndex("rsvp_unique_idx").on(t.eventId, t.userId)]
 );
 
-/* --------------------------- vendors & directory -------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                       5. VENDORS, FOOD & REVIEWS                           */
+/* -------------------------------------------------------------------------- */
 
 export const places = pgTable("places", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -229,7 +250,9 @@ export const reviews = pgTable(
   (t) => [index("reviews_vendor_idx").on(t.vendorId)]
 );
 
-/* ------------------------------ moderation -------------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                     6. MODERATION, SAFETY & REPORTS                        */
+/* -------------------------------------------------------------------------- */
 
 export const reports = pgTable(
   "reports",
@@ -269,7 +292,9 @@ export const blocks = pgTable(
   (t) => [uniqueIndex("block_pair_idx").on(t.blockerId, t.blockedId)]
 );
 
-/* ------------------------------ announcements ----------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                      7. BROADCASTS & ANNOUNCEMENTS                         */
+/* -------------------------------------------------------------------------- */
 
 export const announcements = pgTable("announcements", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -280,3 +305,242 @@ export const announcements = pgTable("announcements", {
     .notNull()
     .defaultNow(),
 });
+
+/* -------------------------------------------------------------------------- */
+/*                 8. SKILLS, BEACONS & INTERNSHIPS / GIGS                    */
+/* -------------------------------------------------------------------------- */
+
+// Global Skills Taxonomy
+export const skills = pgTable("skills", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull().unique(), // e.g. "Next.js", "AI Perception", "Robotics"
+  category: text("category").notNull(), // "Frontend", "Hardware", "Design", "AI & Data"
+});
+
+// User Skills (Many-to-Many Junction)
+export const userSkills = pgTable(
+  "user_skills",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    skillId: uuid("skill_id")
+      .notNull()
+      .references(() => skills.id, { onDelete: "cascade" }),
+    proficiency: text("proficiency").notNull().default("Intermediate"), // "Beginner", "Intermediate", "Advanced"
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.skillId] })]
+);
+
+// Live Map Beacons (Tied to Users)
+export const mapBeacons = pgTable(
+  "map_beacons",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    creatorId: uuid("creator_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    type: text("type").notNull(), // "Skill Offer" or "Gig/Opportunity"
+    lat: doublePrecision("lat").notNull(),
+    lng: doublePrecision("lng").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("map_beacons_creator_idx").on(t.creatorId),
+    index("map_beacons_expires_at_idx").on(t.expiresAt),
+  ]
+);
+
+// Permanent Internships & Career Opportunities
+export const opportunities = pgTable(
+  "opportunities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    posterId: uuid("poster_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    company: text("company").notNull(),
+    type: text("type").notNull(), // "Final Year Internship", "Part-Time", "Summer Research"
+    stipend: text("stipend").notNull().default("Unpaid / Credits"),
+    category: text("category").notNull().default("For You"), // "For You", "Freshers", "All Campus"
+    status: text("status").notNull().default("Open"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("opportunities_status_idx").on(t.status),
+    index("opportunities_category_idx").on(t.category),
+    index("opportunities_poster_idx").on(t.posterId),
+  ]
+);
+
+// Opportunity Requirements (Many-to-Many Junction)
+export const opportunitySkills = pgTable(
+  "opportunity_skills",
+  {
+    opportunityId: uuid("opportunity_id")
+      .notNull()
+      .references(() => opportunities.id, { onDelete: "cascade" }),
+    skillId: uuid("skill_id")
+      .notNull()
+      .references(() => skills.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.opportunityId, t.skillId] }),
+    index("opp_skills_skill_idx").on(t.skillId),
+  ]
+);
+
+// Student Applications for Internships & Opportunities
+export const applications = pgTable(
+  "applications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    applicantId: uuid("applicant_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    opportunityId: uuid("opportunity_id")
+      .notNull()
+      .references(() => opportunities.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("Pending"), // "Pending", "Accepted", "Rejected"
+    appliedAt: timestamp("applied_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("unique_applicant_opportunity_idx").on(t.applicantId, t.opportunityId),
+    index("applications_applicant_idx").on(t.applicantId),
+    index("applications_opportunity_idx").on(t.opportunityId),
+  ]
+);
+
+/* -------------------------------------------------------------------------- */
+/*                         9. RELATIONAL DEFINITIONS                          */
+/* -------------------------------------------------------------------------- */
+
+export const usersRelations = relations(users, ({ many }) => ({
+  skills: many(userSkills),
+  beacons: many(mapBeacons),
+  applications: many(applications),
+}));
+
+export const skillsRelations = relations(skills, ({ many }) => ({
+  userSkills: many(userSkills),
+  opportunitySkills: many(opportunitySkills),
+}));
+
+export const userSkillsRelations = relations(userSkills, ({ one }) => ({
+  user: one(users, {
+    fields: [userSkills.userId],
+    references: [users.id],
+  }),
+  skill: one(skills, {
+    fields: [userSkills.skillId],
+    references: [skills.id],
+  }),
+}));
+
+export const mapBeaconsRelations = relations(mapBeacons, ({ one }) => ({
+  creator: one(users, {
+    fields: [mapBeacons.creatorId],
+    references: [users.id],
+  }),
+}));
+
+export const opportunitiesRelations = relations(opportunities, ({ one, many }) => ({
+  poster: one(users, {
+    fields: [opportunities.posterId],
+    references: [users.id],
+  }),
+  requiredSkills: many(opportunitySkills),
+  applications: many(applications),
+}));
+
+export const opportunitySkillsRelations = relations(opportunitySkills, ({ one }) => ({
+  opportunity: one(opportunities, {
+    fields: [opportunitySkills.opportunityId],
+    references: [opportunities.id],
+  }),
+  skill: one(skills, {
+    fields: [opportunitySkills.skillId],
+    references: [skills.id],
+  }),
+}));
+
+export const applicationsRelations = relations(applications, ({ one }) => ({
+  applicant: one(users, {
+    fields: [applications.applicantId],
+    references: [users.id],
+  }),
+  opportunity: one(opportunities, {
+    fields: [applications.opportunityId],
+    references: [opportunities.id],
+  }),
+}));
+
+/* -------------------------------------------------------------------------- */
+/*                     10. INFERRED TYPESCRIPT INTERFACES                     */
+/* -------------------------------------------------------------------------- */
+
+export type User = InferSelectModel<typeof users>;
+export type NewUser = InferInsertModel<typeof users>;
+
+export type OtpCode = InferSelectModel<typeof otpCodes>;
+export type NewOtpCode = InferInsertModel<typeof otpCodes>;
+
+export type AuthSession = InferSelectModel<typeof authSessions>;
+export type NewAuthSession = InferInsertModel<typeof authSessions>;
+
+export type ChatSession = InferSelectModel<typeof chatSessions>;
+export type NewChatSession = InferInsertModel<typeof chatSessions>;
+
+export type Message = InferSelectModel<typeof messages>;
+export type NewMessage = InferInsertModel<typeof messages>;
+
+export type Event = InferSelectModel<typeof events>;
+export type NewEvent = InferInsertModel<typeof events>;
+
+export type EventRsvp = InferSelectModel<typeof eventRsvps>;
+export type NewEventRsvp = InferInsertModel<typeof eventRsvps>;
+
+export type Place = InferSelectModel<typeof places>;
+export type NewPlace = InferInsertModel<typeof places>;
+
+export type Vendor = InferSelectModel<typeof vendors>;
+export type NewVendor = InferInsertModel<typeof vendors>;
+
+export type Review = InferSelectModel<typeof reviews>;
+export type NewReview = InferInsertModel<typeof reviews>;
+
+export type Report = InferSelectModel<typeof reports>;
+export type NewReport = InferInsertModel<typeof reports>;
+
+export type Block = InferSelectModel<typeof blocks>;
+export type NewBlock = InferInsertModel<typeof blocks>;
+
+export type Announcement = InferSelectModel<typeof announcements>;
+export type NewAnnouncement = InferInsertModel<typeof announcements>;
+
+export type Skill = InferSelectModel<typeof skills>;
+export type NewSkill = InferInsertModel<typeof skills>;
+
+export type UserSkill = InferSelectModel<typeof userSkills>;
+export type NewUserSkill = InferInsertModel<typeof userSkills>;
+
+export type MapBeacon = InferSelectModel<typeof mapBeacons>;
+export type NewMapBeacon = InferInsertModel<typeof mapBeacons>;
+
+export type Opportunity = InferSelectModel<typeof opportunities>;
+export type NewOpportunity = InferInsertModel<typeof opportunities>;
+
+export type OpportunitySkill = InferSelectModel<typeof opportunitySkills>;
+export type NewOpportunitySkill = InferInsertModel<typeof opportunitySkills>;
+
+export type Application = InferSelectModel<typeof applications>;
+export type NewApplication = InferInsertModel<typeof applications>;

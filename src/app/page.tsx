@@ -179,12 +179,20 @@ export default function Page() {
             <ToastHost toasts={toasts} dismiss={dismissToast} />
 
             <div className="relative flex-1 overflow-hidden">
-              <div key={tab} className="view-enter-active h-full w-full">
-                {tab === "home" && <HomeView />}
-                {tab === "buddies" && <BuddiesView />}
-                {tab === "campus" && <CampusView />}
-                {tab === "chats" && <ChatsView />}
-                {tab === "profile" && <ProfileView />}
+              <div className={`h-full w-full ${tab === "home" ? "block" : "hidden"}`}>
+                <HomeView />
+              </div>
+              <div className={`h-full w-full ${tab === "buddies" ? "block" : "hidden"}`}>
+                <BuddiesView />
+              </div>
+              <div className={`h-full w-full ${tab === "campus" ? "block" : "hidden"}`}>
+                <CampusView />
+              </div>
+              <div className={`h-full w-full ${tab === "chats" ? "block" : "hidden"}`}>
+                <ChatsView />
+              </div>
+              <div className={`h-full w-full ${tab === "profile" ? "block" : "hidden"}`}>
+                <ProfileView />
               </div>
             </div>
 

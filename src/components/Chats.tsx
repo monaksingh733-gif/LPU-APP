@@ -23,7 +23,19 @@ import {
   IconSend,
   IconSparkles,
   IconX,
+  IconAlert,
+  IconRefresh,
 } from "@/components/icons";
+
+function triggerHaptic(pattern: number | number[] = 15) {
+  if (typeof window !== "undefined" && typeof navigator !== "undefined" && "vibrate" in navigator) {
+    try {
+      navigator.vibrate(pattern);
+    } catch {
+      /* ignore */
+    }
+  }
+}
 
 const PHOTO_POOL = [
   "https://images.pexels.com/photos/17223837/pexels-photo-17223837.jpeg?auto=compress&cs=tinysrgb&dpr=1&fit=crop&h=300&w=400",
@@ -334,45 +346,108 @@ function ChatDetailView({ id }: { id: string }) {
   const meId = useMeId();
   const isInitiator = s?.iInitiated ?? false;
 
-  const send = async (kind: "text" | "image" | "voice", body: string) => {
+  const send = async (kind: "text" | "image" | "voice", body: string, retryId?: string) => {
     if (!s) return;
+    triggerHaptic(12);
     setSending(true);
 
-    // Optimistic UI append
-    const tempId = "temp-" + Date.now();
+    const tempId = retryId || "temp-" + Date.now();
     const optMsg: MessageItem = {
       id: tempId,
       senderId: meId,
       kind,
       body,
       createdAt: new Date().toISOString(),
+      status: "pending",
     };
-    setData((prev) => (prev ? { ...prev, messages: [...prev.messages, optMsg] } : prev));
-    setText("");
+
+    if (retryId) {
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              messages: prev.messages.map((m) => (m.id === retryId ? optMsg : m)),
+            }
+          : prev
+      );
+    } else {
+      setData((prev) => (prev ? { ...prev, messages: [...prev.messages, optMsg] } : prev));
+      setText("");
+    }
 
     try {
       await api("/api/chats", {
         method: "POST",
         body: JSON.stringify({ action: "message", sessionId: s.id, kind, body }),
       });
+      triggerHaptic([8, 25, 8]);
       await load();
     } catch (e) {
-      // Revert on error
+      triggerHaptic([35, 45, 35]);
+      // Mark message as failed with retry action instead of discarding it
+      const errMsg = e instanceof Error ? e.message : "Delivery failed";
       setData((prev) =>
-        prev ? { ...prev, messages: prev.messages.filter((m) => m.id !== tempId) } : prev
+        prev
+          ? {
+              ...prev,
+              messages: prev.messages.map((m) =>
+                m.id === tempId ? { ...m, status: "failed", errorMessage: errMsg } : m
+              ),
+            }
+          : prev
       );
       if (e instanceof ApiError && e.code === "media_locked") {
         toast(e.message, "warn");
       } else {
-        toast(e instanceof Error ? e.message : "Could not send message.", "err");
+        toast("Message failed to send. Tap retry on the bubble.", "err");
       }
     } finally {
       setSending(false);
     }
   };
 
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    triggerHaptic(12);
+    if (file.size > 5 * 1024 * 1024) {
+      toast("Image must be under 5MB.", "err");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        send("image", reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const shareLocation = () => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      return toast("Location not supported by browser", "err");
+    }
+    triggerHaptic(15);
+    toast("Locating campus GPS coordinates…", "ok");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude.toFixed(5);
+        const lng = pos.coords.longitude.toFixed(5);
+        send("text", `📍 Shared Location Pin: (${lat}, ${lng}) · Live Campus GPS`);
+        setMeetupOpen(false);
+        toast("Live location pin shared to chat!", "ok");
+      },
+      () => toast("Please allow location permissions to drop a pin.", "err"),
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
+
   const respond = async (response: "accept" | "decline") => {
     if (!s) return;
+    triggerHaptic(response === "accept" ? [15, 35, 15] : 20);
     try {
       await api("/api/chats", {
         method: "POST",
@@ -513,6 +588,11 @@ function ChatDetailView({ id }: { id: string }) {
             m={m}
             mine={m.senderId === meId}
             onPhotoClick={setLightboxSrc}
+            onRetry={(failedMsg) => {
+              if (failedMsg.kind !== "system") {
+                send(failedMsg.kind, failedMsg.body, failedMsg.id);
+              }
+            }}
           />
         ))}
         {s?.status === "accepted" && (
@@ -526,6 +606,14 @@ function ChatDetailView({ id }: { id: string }) {
       {s && s.status !== "declined" && s.status !== "expired" && (
         <div className="border-t border-line bg-cream px-3 py-2.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] shadow-xs">
           <div className="flex items-center gap-2">
+            <input
+              type="file"
+              accept="image/*"
+              ref={imageInputRef}
+              className="hidden"
+              id="image-upload"
+              onChange={handleImageFile}
+            />
             <MediaButton
               locked={mediaLocked}
               icon={<IconCamera size={18} />}
@@ -538,7 +626,7 @@ function ChatDetailView({ id }: { id: string }) {
                   "warn"
                 )
               }
-              onClick={() => send("image", PHOTO_POOL[Math.floor(Math.random() * PHOTO_POOL.length)])}
+              onClick={() => imageInputRef.current?.click()}
             />
             <MediaButton
               locked={mediaLocked}
@@ -637,8 +725,26 @@ function ChatDetailView({ id }: { id: string }) {
           </div>
 
           <div className="mt-3.5 space-y-3">
+            {/* Native Geolocation Pin Sharing Button */}
+            <button
+              type="button"
+              onClick={shareLocation}
+              className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-pine/30 bg-pine-soft p-3 text-left transition-all active:scale-[0.98] hover:bg-pine hover:text-cream group shadow-xs"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-pine text-cream group-hover:bg-cream group-hover:text-pine transition-colors">
+                  <IconPin size={16} />
+                </span>
+                <div>
+                  <p className="text-xs font-bold text-ink group-hover:text-cream">Share Live Campus GPS Pin</p>
+                  <p className="text-[10px] font-semibold text-pine group-hover:text-cream/90">Exact latitude & longitude coordinates</p>
+                </div>
+              </div>
+              <span className="text-[11px] font-bold text-pine group-hover:text-cream">Share Pin →</span>
+            </button>
+
             <p className="text-xs leading-relaxed text-ink-soft">
-              Choose a trusted public campus meetup spot and preferred timing:
+              Or pick a designated campus meetup landmark:
             </p>
 
             <div className="space-y-1.5">
@@ -731,11 +837,16 @@ function Bubble({
   m,
   mine,
   onPhotoClick,
+  onRetry,
 }: {
   m: MessageItem;
   mine: boolean;
   onPhotoClick?: (src: string) => void;
+  onRetry?: (m: MessageItem) => void;
 }) {
+  const isFailed = m.status === "failed";
+  const isPending = m.status === "pending";
+
   if (m.kind === "system") {
     return (
       <div className="animate-fade-up flex justify-center py-1">
@@ -752,18 +863,49 @@ function Bubble({
         <div
           onClick={() => onPhotoClick?.(m.body)}
           className={`cursor-pointer max-w-[72%] overflow-hidden rounded-2xl border shadow-xs transition-transform active:scale-95 ${
-            mine ? "rounded-br-sm border-pine/30" : "rounded-bl-sm border-line"
-          } bg-cream`}
+            isFailed
+              ? "border-red-400 bg-red-50/90"
+              : mine
+              ? "rounded-br-sm border-pine/30 bg-cream"
+              : "rounded-bl-sm border-line bg-cream"
+          }`}
         >
-          <img
-            src={m.body}
-            alt="Shared photo"
-            className="h-38 w-52 object-cover"
-            loading="lazy"
-          />
-          <p className="px-2.5 py-1.5 text-[10px] font-semibold text-ink-faint">
-            📷 Photo (tap to view) · {timeAgo(m.createdAt)}
-          </p>
+          <div className="relative">
+            <img
+              src={m.body}
+              alt="Shared photo"
+              className={`h-38 w-52 object-cover ${isPending ? "opacity-75" : ""}`}
+              loading="lazy"
+            />
+            {isPending && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
+                <Spinner size={20} className="text-white" />
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-between px-2.5 py-1.5 text-[10px] font-semibold text-ink-faint">
+            <span>📷 Photo</span>
+            <div className="flex items-center gap-1.5">
+              {isPending && <span className="text-amber-600 font-bold">Sending…</span>}
+              <span>{timeAgo(m.createdAt)}</span>
+            </div>
+          </div>
+          {isFailed && (
+            <div className="flex items-center justify-between border-t border-red-200 bg-red-100/80 px-2.5 py-1.5 text-[10px] font-bold text-red-700">
+              <span className="flex items-center gap-1">
+                <IconAlert size={12} /> Failed to send
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRetry?.(m);
+                }}
+                className="flex cursor-pointer items-center gap-1 rounded-md bg-red-600 px-2 py-0.5 text-white shadow-xs active:scale-95 transition-all"
+              >
+                <IconRefresh size={10} /> Retry
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -772,7 +914,17 @@ function Bubble({
   if (m.kind === "voice") {
     return (
       <div className={`animate-fade-up flex ${mine ? "justify-end" : "justify-start"}`}>
-        <VoiceNote seconds={Number(m.body) || 6} mine={mine} at={m.createdAt} />
+        <div className="flex flex-col items-end">
+          <VoiceNote seconds={Number(m.body) || 6} mine={mine} at={m.createdAt} />
+          {isFailed && (
+            <button
+              onClick={() => onRetry?.(m)}
+              className="mt-1 flex cursor-pointer items-center gap-1 text-[10px] font-bold text-red-600 hover:underline"
+            >
+              <IconRefresh size={11} /> Tap to retry voice note
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -782,8 +934,10 @@ function Bubble({
   return (
     <div className={`animate-fade-up flex ${mine ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-2xs ${
-          isMeetupProposal
+        className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-2xs transition-all ${
+          isFailed
+            ? "rounded-br-sm border-2 border-red-400 bg-red-50 text-red-950 shadow-sm ring-2 ring-red-200"
+            : isMeetupProposal
             ? mine
               ? "rounded-br-sm border-2 border-amber bg-pine text-cream ring-2 ring-amber/30"
               : "rounded-bl-sm border-2 border-amber bg-amber-soft/80 text-ink ring-2 ring-amber/20"
@@ -799,13 +953,34 @@ function Bubble({
           </div>
         )}
         {m.body}
-        <span
-          className={`mt-1 block text-right text-[9px] font-semibold ${
-            mine ? "text-cream/65" : "text-ink-faint"
-          }`}
-        >
-          {timeAgo(m.createdAt)}
-        </span>
+        <div className="mt-1 flex items-center justify-end gap-1.5 text-[9px] font-semibold">
+          {isPending && (
+            <span className="flex items-center gap-1 text-amber-300 font-bold">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-300 animate-ping" />
+              Sending…
+            </span>
+          )}
+          <span className={mine && !isFailed ? "text-cream/65" : isFailed ? "text-red-600" : "text-ink-faint"}>
+            {timeAgo(m.createdAt)}
+          </span>
+        </div>
+
+        {isFailed && (
+          <div className="mt-2 flex items-center justify-between border-t border-red-200 pt-1.5 text-[11px] font-bold text-red-700">
+            <span className="flex items-center gap-1">
+              <IconAlert size={12} className="text-red-500" />
+              <span>Not delivered</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => onRetry?.(m)}
+              className="flex cursor-pointer items-center gap-1 rounded-md bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs active:scale-95 transition-all"
+            >
+              <IconRefresh size={10} />
+              <span>Retry</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
