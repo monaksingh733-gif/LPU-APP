@@ -18,6 +18,8 @@ import {
   IconSparkles,
 } from "@/components/icons";
 import { Cyber3DEyeWidget, BagelClipDefs } from "@/components/Splash3D";
+import { AuthPortal } from "@/components/AuthPortal";
+import { motion, AnimatePresence } from "motion/react";
 
 interface DemoUserItem {
   id: string;
@@ -27,6 +29,7 @@ interface DemoUserItem {
   avatarHue: number;
   gender?: string;
   lookingFor?: string;
+  email?: string;
 }
 
 export function LoginPage({
@@ -42,7 +45,10 @@ export function LoginPage({
 }) {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<MeData | null | undefined>(undefined);
-  const [loginMethod, setLoginMethod] = useState<"email" | "mobile" | "demo">("email");
+  const [loginMethod, setLoginMethod] = useState<"portal" | "email" | "mobile" | "demo">("email");
+  const [emailAuthMode, setEmailAuthMode] = useState<"otp" | "password">("otp");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [identifier, setIdentifier] = useState("");
   const [mobilePrefix, setMobilePrefix] = useState("+91");
   const [step, setStep] = useState<"input" | "otp">("input");
@@ -77,6 +83,39 @@ export function LoginPage({
 
   const showToast = (m: string, tone: "ok" | "warn" | "err" = "ok") => {
     if (toast) toast(m, tone);
+  };
+
+  // Email Password Login
+  const handlePasswordLogin = async () => {
+    const cleanEmail = identifier.trim().toLowerCase().replace(/\\/g, "");
+    const cleanPassword = password.replace(/\\/g, "");
+    if (!cleanEmail || !cleanPassword) {
+      setError("Please enter both your university email and password.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail, password: cleanPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Incorrect email or password.");
+      }
+      showToast("Signed in securely! Welcome back to campus 🎓", "ok");
+      if (onLoginSuccess) {
+        onLoginSuccess();
+      } else {
+        router.push("/");
+      }
+    } catch (e: any) {
+      setError(e.message || "Invalid email or password.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   // 1-Tap Quick Demo Login
@@ -261,28 +300,36 @@ export function LoginPage({
         {/* Navigation & Brand Header */}
         <div className="flex items-center justify-between border-b border-line bg-cream/80 px-5 pt-4 pb-3.5 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            {!embedded ? (
+            {step === "otp" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setStep("input");
+                  setError(null);
+                }}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-paper text-ink-soft transition-transform active:scale-90 hover:bg-cream hover:text-ink cursor-pointer"
+                title="Back to login form"
+              >
+                <IconChevronLeft size={20} />
+              </button>
+            ) : onSwitchToRegister ? (
+              <button
+                type="button"
+                onClick={onSwitchToRegister}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-paper text-ink-soft transition-transform active:scale-90 hover:bg-cream hover:text-ink cursor-pointer"
+                title="Create Student Account"
+              >
+                <IconChevronLeft size={20} />
+              </button>
+            ) : !embedded ? (
               <Link
                 href="/"
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-paper text-ink-soft transition-transform active:scale-90 hover:bg-cream hover:text-ink"
-                title="Back to Quad Campus"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-paper text-ink-soft transition-transform active:scale-90 hover:bg-cream hover:text-ink cursor-pointer"
+                title="Back to Campus"
               >
                 <IconChevronLeft size={20} />
               </Link>
-            ) : (
-              step === "otp" && (
-                <button
-                  onClick={() => {
-                    setStep("input");
-                    setError(null);
-                  }}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-paper text-ink-soft transition-transform active:scale-90 hover:bg-cream hover:text-ink"
-                  title="Back"
-                >
-                  <IconChevronLeft size={20} />
-                </button>
-              )
-            )}
+            ) : null}
 
             <div className="flex items-center gap-2.5">
               <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-pine-ink text-cream shadow-md overflow-hidden border border-pine/40">
@@ -365,54 +412,44 @@ export function LoginPage({
           </div>
 
           {/* Login Method Segmented Control */}
-          <div className="mt-4 flex rounded-2xl border border-line bg-cream p-1 shadow-2xs">
-            <button
-              type="button"
-              onClick={() => {
-                setLoginMethod("email");
-                setError(null);
-                setStep("input");
-              }}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all ${
-                loginMethod === "email"
-                  ? "bg-pine text-cream shadow-sm"
-                  : "text-ink-soft hover:text-ink hover:bg-paper"
-              }`}
-            >
-              <IconMail size={15} />
-              <span>University Email</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setLoginMethod("mobile");
-                setError(null);
-                setStep("input");
-              }}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all ${
-                loginMethod === "mobile"
-                  ? "bg-pine text-cream shadow-sm"
-                  : "text-ink-soft hover:text-ink hover:bg-paper"
-              }`}
-            >
-              <IconPhone size={15} />
-              <span>Mobile Phone</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setLoginMethod("demo");
-                setError(null);
-              }}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all ${
-                loginMethod === "demo"
-                  ? "bg-pine text-cream shadow-sm"
-                  : "text-ink-soft hover:text-ink hover:bg-paper"
-              }`}
-            >
-              <IconSparkles size={15} />
-              <span>1-Tap Demo</span>
-            </button>
+          <div className="mt-4 flex rounded-2xl border border-line bg-cream p-1 shadow-2xs relative">
+            {(
+              [
+                { id: "portal", label: "Password", icon: IconLock },
+                { id: "email", label: "Email OTP", icon: IconMail },
+                { id: "mobile", label: "Mobile", icon: IconPhone },
+                { id: "demo", label: "Demo", icon: IconSparkles },
+              ] as const
+            ).map((item) => {
+              const active = loginMethod === item.id;
+              const ItemIcon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setLoginMethod(item.id);
+                    setError(null);
+                    if (item.id === "email" || item.id === "mobile") {
+                      setStep("input");
+                    }
+                  }}
+                  className={`relative flex flex-1 items-center justify-center gap-1 rounded-xl py-2 text-[11px] font-bold transition-colors cursor-pointer z-10 select-none ${
+                    active ? "text-cream" : "text-ink-soft hover:text-ink"
+                  }`}
+                >
+                  {active && (
+                    <motion.div
+                      layoutId="activeLoginTabPill"
+                      className="absolute inset-0 rounded-xl bg-pine shadow-sm z-[-1]"
+                      transition={{ type: "spring", stiffness: 450, damping: 34 }}
+                    />
+                  )}
+                  <ItemIcon size={14} className={active ? "text-cream" : "text-ink-soft"} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Error Banner */}
@@ -423,288 +460,333 @@ export function LoginPage({
             </div>
           )}
 
-          {/* METHOD: DEMO 1-TAP LOGIN */}
-          {loginMethod === "demo" && (
-            <div className="animate-fade-up mt-4">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-bold text-ink uppercase tracking-wider">
-                  Select Active Student Profile
-                </p>
-                <span className="text-[10px] text-ink-faint">Instant testing bypass</span>
-              </div>
-              <p className="mt-1 text-xs text-ink-soft">
-                Tap any verified student account to immediately log in and explore their chats, schedules, and bookmarks.
-              </p>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={loginMethod + (loginMethod === "email" || loginMethod === "mobile" ? step : "")}
+              initial={{ opacity: 0, y: 8, filter: "blur(4px)" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: -6, filter: "blur(4px)" }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            >
+              {/* METHOD: ENCRYPTED AUTH PORTAL */}
+              {loginMethod === "portal" && (
+                <div className="animate-fade-up mt-3">
+                  <AuthPortal
+                    isModal
+                    toast={toast}
+                    onLoginSuccess={onLoginSuccess ? onLoginSuccess : () => { window.location.href = "/"; }}
+                    onSuccess={onLoginSuccess ? onLoginSuccess : () => { window.location.href = "/"; }}
+                  />
+                </div>
+              )}
 
-              <div className="mt-3 grid grid-cols-1 gap-2.5">
-                {demoUsers.map((d) => (
-                  <button
-                    key={d.id}
-                    onClick={() => handleDemoLogin(d.id, d.fullName)}
-                    disabled={busy}
-                    className="group flex cursor-pointer items-center justify-between rounded-2xl border border-line bg-cream p-3 shadow-xs transition-all hover:border-pine hover:bg-paper active:scale-[0.98]"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <Avatar name={d.fullName} hue={d.avatarHue} size={42} status="online" />
-                      <div className="min-w-0 text-left">
-                        <div className="flex items-center gap-2">
-                          <p className="truncate font-display text-sm font-bold text-ink group-hover:text-pine">
-                            {d.fullName}
-                          </p>
-                          <span className="rounded-full bg-pine-soft px-1.5 py-0.2 text-[9px] font-bold text-pine">
-                            Year {d.academicYear}
-                          </span>
-                        </div>
-                        <p className="truncate text-xs text-ink-soft">{d.course}</p>
-                        {d.lookingFor && (
-                          <p className="truncate text-[10px] text-ink-faint italic">
-                            &quot;{d.lookingFor}&quot;
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-pine-soft text-pine transition-colors group-hover:bg-pine group-hover:text-cream">
-                      <IconChevronRight size={16} />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* METHOD: EMAIL OR MOBILE - STEP 1 (INPUT) */}
-          {loginMethod !== "demo" && step === "input" && (
-            <div className="animate-fade-up mt-4">
-              {loginMethod === "email" ? (
-                <div>
-                  <label className="block text-xs font-bold text-ink">
-                    Institutional Email Address
-                  </label>
-                  <p className="mt-0.5 text-[11px] text-ink-faint">
-                    Must end in <span className="font-semibold text-pine">.edu</span> or{" "}
-                    <span className="font-semibold text-pine">.ac.in</span>
-                  </p>
-                  <div className="mt-2 flex items-center rounded-2xl border border-line bg-cream px-3.5 py-2.5 shadow-2xs focus-within:border-pine focus-within:ring-2 focus-within:ring-pine/20">
-                    <span className="text-ink-faint mr-2.5">
-                      <IconMail size={18} />
-                    </span>
-                    <input
-                      type="email"
-                      value={identifier}
-                      onChange={(e) => {
-                        setIdentifier(e.target.value);
-                        setError(null);
-                      }}
-                      onKeyDown={(e) => e.key === "Enter" && handleRequestOtp()}
-                      placeholder="e.g. ritik.120012@lpu.in"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      className="w-full bg-transparent text-sm font-semibold text-ink placeholder:text-ink-faint/60 focus:outline-hidden"
-                    />
+              {/* METHOD: DEMO 1-TAP LOGIN */}
+              {loginMethod === "demo" && (
+                <div className="animate-fade-up mt-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-bold text-ink uppercase tracking-wider">
+                      Select Active Student Profile
+                    </p>
+                    <span className="text-[10px] text-ink-faint">Instant testing bypass</span>
                   </div>
+                  <p className="mt-1 text-xs text-ink-soft">
+                    Tap any verified student account to immediately log in and explore their chats, schedules, and bookmarks.
+                  </p>
 
-                  {/* University domain suggestions */}
-                  <div className="mt-2.5 flex flex-wrap gap-1.5 items-center">
-                    <span className="text-[10px] font-bold text-ink-faint uppercase">Domain presets:</span>
-                    {emailPresets.map((domain) => (
-                      <button
-                        key={domain}
-                        type="button"
-                        onClick={() => {
-                          const prefix = identifier.split("@")[0] || "student";
-                          setIdentifier(`${prefix}${domain}`);
-                          setError(null);
-                        }}
-                        className="rounded-lg border border-line bg-paper px-2 py-0.5 text-[10px] font-bold text-ink-soft hover:border-pine hover:text-pine active:scale-95"
+                  <div className="mt-3 grid grid-cols-1 gap-2.5">
+                    {demoUsers.map((d) => (
+                      <motion.button
+                        key={d.id}
+                        onClick={() => handleDemoLogin(d.id, d.fullName)}
+                        disabled={busy}
+                        whileHover={{ scale: 1.012, y: -1 }}
+                        whileTap={{ scale: 0.98 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                        className="group flex cursor-pointer items-center justify-between rounded-2xl border border-line bg-cream p-3 shadow-xs transition-colors hover:border-pine hover:bg-paper"
                       >
-                        {domain}
-                      </button>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Avatar name={d.fullName} hue={d.avatarHue} size={42} status="online" />
+                          <div className="min-w-0 text-left">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate font-display text-sm font-bold text-ink group-hover:text-pine">
+                                {d.fullName}
+                              </p>
+                              <span className="rounded-full bg-pine-soft px-1.5 py-0.2 text-[9px] font-bold text-pine">
+                                Year {d.academicYear}
+                              </span>
+                            </div>
+                            <p className="truncate text-xs text-ink-soft">{d.course}</p>
+                            {d.email && (
+                              <p className="truncate text-[10px] font-mono font-semibold text-pine/80">
+                                {d.email}
+                              </p>
+                            )}
+                            {d.lookingFor && (
+                              <p className="truncate text-[10px] text-ink-faint italic">
+                                &quot;{d.lookingFor}&quot;
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-pine-soft text-pine transition-colors group-hover:bg-pine group-hover:text-cream">
+                          <IconChevronRight size={16} />
+                        </div>
+                      </motion.button>
                     ))}
                   </div>
                 </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-bold text-ink">
-                    Registered Mobile Number
-                  </label>
-                  <p className="mt-0.5 text-[11px] text-ink-faint">
-                    SMS OTP will be sent to verify your student account
-                  </p>
-                  <div className="mt-2 flex items-center rounded-2xl border border-line bg-cream px-3.5 py-2.5 shadow-2xs focus-within:border-pine focus-within:ring-2 focus-within:ring-pine/20">
-                    <select
-                      value={mobilePrefix}
-                      onChange={(e) => setMobilePrefix(e.target.value)}
-                      className="bg-transparent text-xs font-bold text-ink focus:outline-hidden pr-2 mr-2 border-r border-line"
-                    >
-                      <option value="+91">🇮🇳 +91</option>
-                      <option value="+1">🇺🇸 +1</option>
-                      <option value="+44">🇬🇧 +44</option>
-                      <option value="+61">🇦🇺 +61</option>
-                    </select>
-                    <span className="text-ink-faint mr-2">
-                      <IconPhone size={17} />
-                    </span>
-                    <input
-                      type="tel"
-                      value={identifier}
-                      onChange={(e) => {
-                        setIdentifier(e.target.value);
+              )}
+
+              {/* METHOD: EMAIL OR MOBILE - STEP 1 (INPUT) */}
+              {(loginMethod === "email" || loginMethod === "mobile") && step === "input" && (
+                <div className="animate-fade-up mt-4">
+                  {loginMethod === "email" ? (
+                    <div>
+                      <label className="block text-xs font-bold text-ink">
+                        Institutional Email Address
+                      </label>
+                      <p className="mt-0.5 text-[11px] text-ink-faint">
+                        Supports <span className="font-semibold text-pine">@lpu.in</span>,{" "}
+                        <span className="font-semibold text-pine">.edu</span>,{" "}
+                        <span className="font-semibold text-pine">.ac.in</span>
+                      </p>
+                      <div className="mt-2 flex items-center rounded-2xl border border-line bg-cream px-3.5 py-2.5 shadow-2xs focus-within:border-pine focus-within:ring-2 focus-within:ring-pine/20">
+                        <span className="text-ink-faint mr-2.5">
+                          <IconMail size={18} />
+                        </span>
+                        <input
+                          type="email"
+                          value={identifier}
+                          onChange={(e) => {
+                            setIdentifier(e.target.value.replace(/\\/g, ""));
+                            setError(null);
+                          }}
+                          onKeyDown={(e) => e.key === "Enter" && handleRequestOtp()}
+                          placeholder="e.g. ritik.120012@lpu.in"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          className="w-full bg-transparent text-sm font-semibold text-ink placeholder:text-ink-faint/60 focus:outline-hidden"
+                        />
+                      </div>
+
+                      {/* University domain suggestions */}
+                      <div className="mt-2.5 flex flex-wrap gap-1.5 items-center">
+                        <span className="text-[10px] font-bold text-ink-faint uppercase">Domain presets:</span>
+                        {emailPresets.map((domain) => (
+                          <button
+                            key={domain}
+                            type="button"
+                            onClick={() => {
+                              const prefix = identifier.split("@")[0] || "student";
+                              setIdentifier(`${prefix}${domain}`);
+                              setError(null);
+                            }}
+                            className="rounded-lg border border-line bg-paper px-2 py-0.5 text-[10px] font-bold text-ink-soft hover:border-pine hover:text-pine active:scale-95"
+                          >
+                            {domain}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-bold text-ink">
+                        Registered Mobile Number
+                      </label>
+                      <p className="mt-0.5 text-[11px] text-ink-faint">
+                        SMS OTP will be sent to verify your student account
+                      </p>
+                      <div className="mt-2 flex items-center rounded-2xl border border-line bg-cream px-3.5 py-2.5 shadow-2xs focus-within:border-pine focus-within:ring-2 focus-within:ring-pine/20">
+                        <select
+                          value={mobilePrefix}
+                          onChange={(e) => setMobilePrefix(e.target.value)}
+                          className="bg-transparent text-xs font-bold text-ink focus:outline-hidden pr-2 mr-2 border-r border-line"
+                        >
+                          <option value="+91">🇮🇳 +91</option>
+                          <option value="+1">🇺🇸 +1</option>
+                          <option value="+44">🇬🇧 +44</option>
+                          <option value="+61">🇦🇺 +61</option>
+                        </select>
+                        <span className="text-ink-faint mr-2">
+                          <IconPhone size={17} />
+                        </span>
+                        <input
+                          type="tel"
+                          value={identifier}
+                          onChange={(e) => {
+                            setIdentifier(e.target.value);
+                            setError(null);
+                          }}
+                          onKeyDown={(e) => e.key === "Enter" && handleRequestOtp()}
+                          placeholder="98765 43210"
+                          className="w-full bg-transparent text-sm font-semibold text-ink placeholder:text-ink-faint/60 focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Submit CTA */}
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.015 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                    onClick={() => handleRequestOtp()}
+                    disabled={busy}
+                    className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-pine py-3.5 font-display text-sm font-bold text-cream shadow-lg shadow-pine/25 disabled:opacity-60"
+                  >
+                    {busy ? (
+                      <>
+                        <Spinner size={18} className="border-cream border-t-transparent" />
+                        <span>Dispatching Code…</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Send 6-Digit Login Code</span>
+                        <IconChevronRight size={16} />
+                      </>
+                    )}
+                  </motion.button>
+                </div>
+              )}
+
+              {/* METHOD: EMAIL OR MOBILE - STEP 2 (OTP VERIFICATION) */}
+              {(loginMethod === "email" || loginMethod === "mobile") && step === "otp" && (
+                <div className="animate-fade-up mt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-ink">Enter Verification Code</p>
+                      <p className="text-[11px] text-ink-soft">
+                        Sent to: <span className="font-semibold text-ink">{identifier}</span>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStep("input");
                         setError(null);
                       }}
-                      onKeyDown={(e) => e.key === "Enter" && handleRequestOtp()}
-                      placeholder="98765 43210"
-                      className="w-full bg-transparent text-sm font-semibold text-ink placeholder:text-ink-faint/60 focus:outline-hidden"
-                    />
+                      className="text-[11px] font-bold text-pine hover:underline cursor-pointer"
+                    >
+                      Change
+                    </button>
+                  </div>
+
+                  {/* 6-Digit Segmented Boxes */}
+                  <div className="mt-4 flex justify-between gap-2">
+                    {otp.map((digit, idx) => (
+                      <input
+                        key={idx}
+                        ref={(el) => {
+                          inputRefs.current[idx] = el;
+                        }}
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={1}
+                        value={digit}
+                        onChange={(e) => handleOtpChange(idx, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                        onPaste={handleOtpPaste}
+                        className={`h-13 w-11 rounded-xl border text-center font-display text-xl font-black transition-all ${
+                          digit
+                            ? "border-pine bg-cream text-pine shadow-sm"
+                            : "border-line bg-paper text-ink focus:border-pine focus:ring-2 focus:ring-pine/20"
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Dispatched Test Code Auto-fill Banner */}
+                  {demoCode && (
+                    <motion.div 
+                      initial={{ scale: 0.95, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="mt-3.5 flex items-center justify-between rounded-xl border border-amber/40 bg-amber/15 px-3 py-2 text-xs"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-amber-900">⚡ Test Code:</span>
+                        <span className="font-mono font-black text-amber-900 tracking-wider">
+                          {demoCode}
+                        </span>
+                      </div>
+                      <motion.button
+                        type="button"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleAutoFillOtp}
+                        className="cursor-pointer rounded-lg bg-amber-600 px-2.5 py-1 text-[11px] font-bold text-cream shadow-xs hover:bg-amber-700"
+                      >
+                        Auto-Fill & Sign In
+                      </motion.button>
+                    </motion.div>
+                  )}
+
+                  {/* Verify CTA */}
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.015 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                    onClick={() => handleVerifyOtp()}
+                    disabled={busy}
+                    className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-pine py-3.5 font-display text-sm font-bold text-cream shadow-lg shadow-pine/25 disabled:opacity-60"
+                  >
+                    {busy ? (
+                      <>
+                        <Spinner size={18} className="border-cream border-t-transparent" />
+                        <span>Verifying Code…</span>
+                      </>
+                    ) : (
+                      <>
+                        <IconCheck size={18} />
+                        <span>Verify & Enter Quad 🎓</span>
+                      </>
+                    )}
+                  </motion.button>
+
+                  {/* Resend Countdown */}
+                  <div className="mt-3 text-center">
+                    {resendCooldown > 0 ? (
+                      <p className="text-[11px] text-ink-faint">
+                        Resend code available in <span className="font-bold text-ink">{resendCooldown}s</span>
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleRequestOtp()}
+                        className="cursor-pointer text-[11px] font-bold text-pine hover:underline"
+                      >
+                        Didn&apos;t receive code? Resend OTP
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
-
-              {/* Submit CTA */}
-              <button
-                type="button"
-                onClick={() => handleRequestOtp()}
-                disabled={busy}
-                className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-pine py-3.5 font-display text-sm font-bold text-cream shadow-lg shadow-pine/25 transition-transform active:scale-[0.98] disabled:opacity-60"
-              >
-                {busy ? (
-                  <>
-                    <Spinner size={18} className="border-cream border-t-transparent" />
-                    <span>Dispatching Code…</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Send 6-Digit Login Code</span>
-                    <IconChevronRight size={16} />
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-
-          {/* METHOD: EMAIL OR MOBILE - STEP 2 (OTP VERIFICATION) */}
-          {loginMethod !== "demo" && step === "otp" && (
-            <div className="animate-fade-up mt-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-ink">Enter Verification Code</p>
-                  <p className="text-[11px] text-ink-soft">
-                    Sent to: <span className="font-semibold text-ink">{identifier}</span>
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep("input");
-                    setError(null);
-                  }}
-                  className="text-[11px] font-bold text-pine hover:underline"
-                >
-                  Change
-                </button>
-              </div>
-
-              {/* 6-Digit Segmented Boxes */}
-              <div className="mt-4 flex justify-between gap-2">
-                {otp.map((digit, idx) => (
-                  <input
-                    key={idx}
-                    ref={(el) => {
-                      inputRefs.current[idx] = el;
-                    }}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleOtpChange(idx, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                    onPaste={handleOtpPaste}
-                    className={`h-13 w-11 rounded-xl border text-center font-display text-xl font-black transition-all ${
-                      digit
-                        ? "border-pine bg-cream text-pine shadow-sm"
-                        : "border-line bg-paper text-ink focus:border-pine focus:ring-2 focus:ring-pine/20"
-                    }`}
-                  />
-                ))}
-              </div>
-
-              {/* Dispatched Test Code Auto-fill Banner */}
-              {demoCode && (
-                <div className="mt-3.5 flex items-center justify-between rounded-xl border border-amber/40 bg-amber/15 px-3 py-2 text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-amber-900">⚡ Test Code:</span>
-                    <span className="font-mono font-black text-amber-900 tracking-wider">
-                      {demoCode}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAutoFillOtp}
-                    className="cursor-pointer rounded-lg bg-amber-600 px-2.5 py-1 text-[11px] font-bold text-cream shadow-xs transition-transform active:scale-95 hover:bg-amber-700"
-                  >
-                    Auto-Fill & Sign In
-                  </button>
-                </div>
-              )}
-
-              {/* Verify CTA */}
-              <button
-                type="button"
-                onClick={() => handleVerifyOtp()}
-                disabled={busy}
-                className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-pine py-3.5 font-display text-sm font-bold text-cream shadow-lg shadow-pine/25 transition-transform active:scale-[0.98] disabled:opacity-60"
-              >
-                {busy ? (
-                  <>
-                    <Spinner size={18} className="border-cream border-t-transparent" />
-                    <span>Verifying Code…</span>
-                  </>
-                ) : (
-                  <>
-                    <IconCheck size={18} />
-                    <span>Verify & Enter Quad 🎓</span>
-                  </>
-                )}
-              </button>
-
-              {/* Resend Countdown */}
-              <div className="mt-3 text-center">
-                {resendCooldown > 0 ? (
-                  <p className="text-[11px] text-ink-faint">
-                    Resend code available in <span className="font-bold text-ink">{resendCooldown}s</span>
-                  </p>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleRequestOtp()}
-                    className="cursor-pointer text-[11px] font-bold text-pine hover:underline"
-                  >
-                    Didn&apos;t receive code? Resend OTP
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
+            </motion.div>
+          </AnimatePresence>
 
           {/* Switch to Registration link */}
-          <div className="mt-6 border-t border-line pt-4 text-center">
-            <p className="text-xs text-ink-soft">
-              New to Quad?{" "}
-              {onSwitchToRegister ? (
-                <button
-                  type="button"
-                  onClick={onSwitchToRegister}
-                  className="font-bold text-pine hover:underline cursor-pointer"
-                >
-                  Create Student Account
-                </button>
-              ) : (
-                <Link href="/?mode=register" className="font-bold text-pine hover:underline">
-                  Create Student Account
-                </Link>
-              )}
-            </p>
-          </div>
+          {loginMethod !== "portal" && (
+            <div className="mt-6 border-t border-line pt-4 text-center">
+              <p className="text-xs text-ink-soft">
+                New to Quad?{" "}
+                {onSwitchToRegister ? (
+                  <button
+                    type="button"
+                    onClick={onSwitchToRegister}
+                    className="font-bold text-pine hover:underline cursor-pointer"
+                  >
+                    Create Student Account
+                  </button>
+                ) : (
+                  <Link href="/?mode=register" className="font-bold text-pine hover:underline">
+                    Create Student Account
+                  </Link>
+                )}
+              </p>
+            </div>
+          )}
 
           {/* Security & Campus Trust Guarantees */}
           <div className="mt-5 rounded-2xl border border-line bg-cream/70 p-3.5">

@@ -21,7 +21,12 @@ export default function LoginRoutePage() {
   return (
     <>
       <ToastHost toasts={toasts} dismiss={dismissToast} />
-      <LoginPage toast={toast} />
+      <LoginPage
+        toast={toast}
+        onLoginSuccess={() => {
+          window.location.href = "/";
+        }}
+      />
     </>
   );
 }

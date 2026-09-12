@@ -10,11 +10,16 @@ interface SplashProps {
 export function Startup3DAnimation({ onComplete, statusText = "Connecting Campus Network..." }: SplashProps) {
   const [phase, setPhase] = useState<"init" | "expanded" | "glitch" | "fadeout">("init");
 
+  const handleSkip = () => {
+    setPhase("fadeout");
+    setTimeout(() => onComplete?.(), 100);
+  };
+
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("expanded"), 200);
-    const t2 = setTimeout(() => setPhase("glitch"), 1300);
-    const t3 = setTimeout(() => setPhase("fadeout"), 2200);
-    const t4 = setTimeout(() => onComplete?.(), 2800);
+    const t1 = setTimeout(() => setPhase("expanded"), 150);
+    const t2 = setTimeout(() => setPhase("glitch"), 650);
+    const t3 = setTimeout(() => setPhase("fadeout"), 1050);
+    const t4 = setTimeout(() => onComplete?.(), 1350);
 
     return () => {
       clearTimeout(t1);
@@ -41,10 +46,23 @@ export function Startup3DAnimation({ onComplete, statusText = "Connecting Campus
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-hidden bg-[#040e0a] transition-opacity duration-700 select-none ${
+      onClick={handleSkip}
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-hidden bg-[#040e0a] transition-opacity duration-500 select-none cursor-pointer ${
         phase === "fadeout" ? "opacity-0 pointer-events-none" : "opacity-100"
       }`}
+      title="Click anywhere to skip intro"
     >
+      {/* Skip Button */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleSkip();
+        }}
+        className="absolute top-4 right-4 z-[120] cursor-pointer rounded-full bg-white/10 hover:bg-white/20 border border-white/20 px-3.5 py-1.5 text-xs font-bold text-cream/90 backdrop-blur-md transition-all active:scale-95 shadow-lg"
+      >
+        Skip →
+      </button>
       {/* Cinematic Letterbox Bars */}
       <div
         className={`pointer-events-none fixed inset-x-0 top-0 z-[110] h-9 sm:h-12 bg-black/90 backdrop-blur-md transition-transform duration-700 ease-out border-b border-white/5 ${

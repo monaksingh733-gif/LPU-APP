@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 import { db } from "@/db";
 import {
   announcements,
@@ -247,6 +248,7 @@ async function doSeed() {
   if (Number(n) > 0) return;
 
   /* ------------------------------ demo users ------------------------------ */
+  const defaultHash = await bcrypt.hash("password123", 10);
   const userIds: string[] = [];
   for (let i = 0; i < DEMO_USERS.length; i++) {
     const u = DEMO_USERS[i];
@@ -265,6 +267,7 @@ async function doSeed() {
         lookingFor: u.lookingFor,
         avatarHue: u.avatarHue,
         isDemo: true,
+        passwordHash: defaultHash,
       })
       .returning({ id: users.id });
     userIds.push(row.id);

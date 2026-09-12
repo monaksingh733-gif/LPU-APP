@@ -142,16 +142,20 @@ export function IsometricCampusMap({
   const userX = toStageX(you.x);
   const userY = toStageY(you.y);
 
-  // Click handler with exact coordinate projection
+  // Click handler with exact coordinate projection accounting for pan & zoom
   const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
     if (hasMovedRef.current) return;
     const svg = e.currentTarget;
     const rect = svg.getBoundingClientRect();
-    const clickX = ((e.clientX - rect.left) / rect.width) * 1000;
-    const clickY = ((e.clientY - rect.top) / rect.height) * 650;
+    const rawX = ((e.clientX - rect.left) / rect.width) * 1000;
+    const rawY = ((e.clientY - rect.top) / rect.height) * 650;
 
-    const normX = Math.round((clickX / 1000) * 100 * 10) / 10;
-    const normY = Math.round((clickY / 650) * 100 * 10) / 10;
+    // Adjust for current pan and zoom
+    const unzoomedX = (rawX - 500 - pan.x) / zoom + 500;
+    const unzoomedY = (rawY - 325 - pan.y) / zoom + 325;
+
+    const normX = Math.round((unzoomedX / 1000) * 100 * 10) / 10;
+    const normY = Math.round((unzoomedY / 650) * 100 * 10) / 10;
 
     const clampedX = Math.max(5, Math.min(95, normX));
     const clampedY = Math.max(5, Math.min(95, normY));
@@ -368,7 +372,6 @@ export function IsometricCampusMap({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={(e) => {
-          e.preventDefault();
           handleZoom(e.deltaY < 0 ? 0.15 : -0.15);
         }}
         style={{ touchAction: 'pan-x pan-y' }}
@@ -939,7 +942,7 @@ export function IsometricCampusMap({
           ))}
 
           {/* 8.5 Live Skill & Opportunity Beacons with Dynamic Expiring Timer Rings */}
-          {opportunityBeacons
+          {(opportunityBeacons ?? [])
             .filter((b) => opportunityFilter === 'all' || b.kind === opportunityFilter)
             .map((beacon) => {
               const bx = toStageX(beacon.x);

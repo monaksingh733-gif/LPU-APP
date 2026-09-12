@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "@/app/page";
 import { api } from "@/lib/client";
 import type { PlaceItem, VendorDetail, VendorListItem } from "@/lib/types";
@@ -221,6 +221,8 @@ export function CampusView() {
   const [dropOpportunityOpen, setDropOpportunityOpen] = useState(false);
   const [pendingBeaconCoord, setPendingBeaconCoord] = useState<{ x: number; y: number } | null>(null);
 
+  const isFirstLoad = useRef(true);
+
   const load = useCallback(async () => {
     try {
       const res = await api<{ vendors: VendorListItem[]; places: PlaceItem[] }>(
@@ -232,11 +234,14 @@ export function CampusView() {
       /* keep last */
     } finally {
       setLoading(false);
+      isFirstLoad.current = false;
     }
   }, [you]);
 
   useEffect(() => {
-    setLoading(true);
+    if (isFirstLoad.current) {
+      setLoading(true);
+    }
     load();
   }, [load]);
 

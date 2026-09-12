@@ -49,7 +49,21 @@ let toastSeq = 1;
 export default function Page() {
   const [me, setMe] = useState<MeData | null | undefined>(undefined);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
-  const [splashDone, setSplashDone] = useState(false);
+  const [splashDone, setSplashDone] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("quad_splash_played") === "true";
+    }
+    return false;
+  });
+
+  const handleSplashDone = useCallback(() => {
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem("quad_splash_played", "true");
+      } catch {}
+    }
+    setSplashDone(true);
+  }, []);
   const [tab, setTab] = useState<Tab>("home");
   const [chatId, setChatId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -120,7 +134,7 @@ export default function Page() {
   if (!splashDone) {
     return (
       <Startup3DAnimation
-        onComplete={() => setSplashDone(true)}
+        onComplete={handleSplashDone}
         statusText={me === undefined ? "Synchronizing Campus Nodes..." : "Initializing Quad 3D..."}
       />
     );

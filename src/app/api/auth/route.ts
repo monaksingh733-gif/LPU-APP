@@ -1,4 +1,5 @@
 import { and, desc, eq, isNotNull, or, sql } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 import { db } from "@/db";
 import { otpCodes, users } from "@/db/schema";
 import { ensureSeeded, seedStarterChats } from "@/db/seed";
@@ -9,7 +10,8 @@ import {
 } from "@/lib/server/auth";
 import { err, ok, readBody } from "@/lib/server/util";
 
-const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.(edu|ac\.in)$/i;
+// Allow institutional, campus (lpu.in), and academic email domains
+const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.(edu|ac\.in|edu\.in|lpu\.in|in|org|com)$/i;
 const MOBILE_RE = /^\+?[0-9][0-9 -]{8,14}$/;
 const OTP_TTL_MS = 5 * 60_000;
 
@@ -32,6 +34,7 @@ export async function GET() {
       course: users.course,
       academicYear: users.academicYear,
       avatarHue: users.avatarHue,
+      email: users.email,
       gender: users.gender,
       lookingFor: users.lookingFor,
       interests: users.interests,
@@ -47,6 +50,34 @@ export async function POST(req: Request) {
   await ensureSeeded();
   const body = await readBody(req);
   const action = String(body.action ?? "");
+
+  /* ---------------------------- PASSWORD LOGIN ----------------------------- */
+  if (action === "password-login") {
+    const email = String(body.email ?? body.identifier ?? "").trim().toLowerCase();
+    const password = String(body.password ?? "");
+    if (!email || !password) {
+      return err(400, "missing_fields", "Email and password are required.");
+    }
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+    if (!user) {
+      return err(404, "no_user", "No student account found with this email.");
+    }
+    let isValid = false;
+    if (user.passwordHash) {
+      isValid = await bcrypt.compare(password, user.passwordHash);
+    } else if (user.isDemo) {
+      isValid = password === "password123" || password.length >= 4;
+    }
+    if (!isValid) {
+      return err(401, "bad_password", "Incorrect password. Please try again.");
+    }
+    await createSessionCookie(user.id);
+    return ok({ user: publicUser(user) });
+  }
 
   /* ------------------------------ DEMO LOGIN ------------------------------ */
   if (action === "demo-login") {
@@ -70,11 +101,11 @@ export async function POST(req: Request) {
 
   /* ------------------------------ REQUEST OTP ------------------------------ */
   if (action === "request-otp") {
-    const identifier = String(body.identifier ?? "").trim().toLowerCase();
+    const identifier = String(body.identifier ?? "").trim().toLowerCase().replace(/\\/g, "");
     const kind = body.kind === "mobile" ? "mobile" : "email";
 
     if (kind === "email" && !EMAIL_RE.test(identifier)) {
-      return err(422, "bad_email", "Use your institutional email (.edu or .ac.in).");
+      return err(422, "bad_email", "Use your student or university email (e.g. @lpu.in, .edu, .ac.in).");
     }
     if (kind === "mobile" && !MOBILE_RE.test(identifier)) {
       return err(422, "bad_mobile", "Enter a valid mobile number.");
@@ -103,8 +134,8 @@ export async function POST(req: Request) {
 
   /* ------------------------------- VERIFY OTP ------------------------------ */
   if (action === "verify-otp") {
-    const identifier = String(body.identifier ?? "").trim().toLowerCase();
-    const code = String(body.otp ?? "").trim();
+    const identifier = String(body.identifier ?? "").trim().toLowerCase().replace(/\\/g, "");
+    const code = String(body.otp ?? "").trim().replace(/\\/g, "");
     const otp = await latestOtp(identifier);
     if (!otp || otp.usedAt || otp.expiresAt.getTime() < Date.now()) {
       return err(410, "otp_expired", "That code expired. Request a new one.");

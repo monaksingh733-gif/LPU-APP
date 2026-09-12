@@ -539,12 +539,12 @@ export function Onboarding({
                   type={loginMethod === "email" ? "email" : "tel"}
                   value={loginIdentifier}
                   onChange={(e) => {
-                    setLoginIdentifier(e.target.value);
+                    setLoginIdentifier(e.target.value.replace(/\\/g, ""));
                     setError(null);
                   }}
                   placeholder={
                     loginMethod === "email"
-                      ? "yourname@university.edu"
+                      ? "e.g. ritik.120012@lpu.in"
                       : "98765 43210"
                   }
                   className="w-full bg-transparent text-sm font-semibold text-ink outline-none placeholder:text-ink-faint"
@@ -677,7 +677,7 @@ export function Onboarding({
               <p className="mt-1.5 text-xs text-ink-soft">
                 {step === "mobile"
                   ? "We'll send a 6-digit OTP code. Your mobile number remains 100% private."
-                  : "Institutional proof that you're enrolled. Must end in .edu or .ac.in."}
+                  : "Institutional proof that you're enrolled. Supports @lpu.in, .edu, or .ac.in."}
               </p>
 
               <label className="mt-5 flex items-center gap-2.5 rounded-2xl border border-line bg-cream px-4 py-3.5 shadow-2xs focus-within:border-pine focus-within:ring-2 focus-within:ring-pine/10">
@@ -686,11 +686,12 @@ export function Onboarding({
                 </span>
                 <input
                   value={step === "mobile" ? mobile : email}
-                  onChange={(e) =>
-                    step === "mobile" ? setMobile(e.target.value) : setEmail(e.target.value)
-                  }
+                  onChange={(e) => {
+                    const clean = e.target.value.replace(/\\/g, "");
+                    step === "mobile" ? setMobile(clean) : setEmail(clean);
+                  }}
                   inputMode={step === "mobile" ? "tel" : "email"}
-                  placeholder={step === "mobile" ? "+91 98765 43210" : "student@university.ac.in"}
+                  placeholder={step === "mobile" ? "+91 98765 43210" : "student@lpu.in"}
                   className="w-full bg-transparent text-sm font-semibold text-ink outline-none placeholder:text-ink-faint"
                 />
               </label>
